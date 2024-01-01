@@ -1,50 +1,50 @@
 /* Setup initial state conditions */
-bool WiFiConnect( const char * ssid, const char * password ) {
-    int i = 0;
-    int timeout = (int)WIFI_CONNECT_TIMEOUT_S/0.5;
+// bool WiFiConnect( const char * ssid, const char * password ) {
+//     int i = 0;
+//     int timeout = (int)WIFI_CONNECT_TIMEOUT_S/0.5;
     
     
-    WiFi.begin(ssid, password);
+//     WiFi.begin(ssid, password);
 
-    /**
-     * Print diagnostic data
-     * for WiFi if logging
-     * is enabled
-     */
-    #if defined(ENABLE_LOGGING)
-        Serial.println("");
-        Serial.print("\tMy MAC address is: "); Serial.println(WiFi.macAddress());
-        Serial.print("\tConnecting to SSID: "); Serial.println(ssid);
-        Serial.print("\tSSID password: "); Serial.println(password);
-    #endif
+//     /**
+//      * Print diagnostic data
+//      * for WiFi if logging
+//      * is enabled
+//      */
+//     #if defined(ENABLE_LOGGING)
+//         Serial.println("");
+//         Serial.print("\tMy MAC address is: "); Serial.println(WiFi.macAddress());
+//         Serial.print("\tConnecting to SSID: "); Serial.println(ssid);
+//         Serial.print("\tSSID password: "); Serial.println(password);
+//     #endif
 
     
-    // Wait for connection
-    Serial.print("\tWiFi Connecting\t");
-    while ((WiFi.status() != WL_CONNECTED) && i < timeout) {
-        delay(500);
-        i++;
-        Serial.print('.');
-    }
-    Serial.println("");
+//     // Wait for connection
+//     Serial.print("\tWiFi Connecting\t");
+//     while ((WiFi.status() != WL_CONNECTED) && i < timeout) {
+//         delay(500);
+//         i++;
+//         Serial.print('.');
+//     }
+//     Serial.println("");
 
-    if(i == timeout){
-    #if defined(ENABLE_LOGGING)
-        Serial.println("\tWiFi Connection timeout!");
-        return false;
-    }
-    #endif
+//     if(i == timeout){
+//     #if defined(ENABLE_LOGGING)
+//         Serial.println("\tWiFi Connection timeout!");
+//         return false;
+//     }
+//     #endif
 
-    #if defined(ENABLE_LOGGING)
-        Serial.println("\tWiFi connected!");
-        Serial.print("\tMy local IP: ");
-        Serial.println(WiFi.localIP());
-    #endif
+//     #if defined(ENABLE_LOGGING)
+//         Serial.println("\tWiFi connected!");
+//         Serial.print("\tMy local IP: ");
+//         Serial.println(WiFi.localIP());
+//     #endif
 
-    return true;
+//     return true;
 
   
-}
+// }
 
 // byte eRcv()
 // {

@@ -253,12 +253,12 @@ void StateEvaluation( void ) {
             // WiFi.forceSleepWake();
             // delay(1);                       // There are claims that a non-zero delay is required after calling the wake function
 
-            if(!WiFiConnect(buf_wifi_ssid, buf_wifi_password)) {
-                #if defined(ENABLE_LOGGING)
-                    Serial.println("Deep sleep.");
-                #endif
-                current_state = STATE_6;
-            }
+            // if(!WiFiConnect(buf_wifi_ssid, buf_wifi_password)) {
+            //     #if defined(ENABLE_LOGGING)
+            //         Serial.println("Deep sleep.");
+            //     #endif
+            //     current_state = STATE_6;
+            // }
 
             current_state = STATE_5;
 
@@ -503,14 +503,14 @@ void StateEvaluation( void ) {
             /**
              * @brief Disconnecting 
              */
-        //     client.stop();
-            
-        //     #if defined(ENABLE_LOGGING)
-        //     Serial.println(F("disconnected"));
-        //     #endif
+            //     client.stop();
+                
+            //     #if defined(ENABLE_LOGGING)
+            //     Serial.println(F("disconnected"));
+            //     #endif
 
-        //     current_state = STATE_6;
-        // }
+            //     current_state = STATE_6;
+        }
         break;
 
         /**
