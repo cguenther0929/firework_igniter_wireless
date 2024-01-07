@@ -30,4 +30,4 @@ The folders, which should be included at `\Documents\Arduino\libraries`, may hav
 The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, the target board shall be  *Generic ESP8266 Module*.  
 
 ### VERSIONS ###
-* V0.0.1 -- TBD
+* V0.0.1.a -- The GPIO expander is working well. Functions have been defined that will clear all outputs, or allow the user to define (1 through 16) which output shall be active.  The asynchronous server is working, but many more switches need to be defined.  

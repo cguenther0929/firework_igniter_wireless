@@ -29,9 +29,16 @@
 /**
  * Constants (slave addresses)
  * for the MAX3725 GPIO expander
+ * The "p" port represents the eight 
+ * IO that are of teh open-drain type
+ * the "o" port represents the eight 
+ * IO that are of the push-pull tyoe
 */
-const uint8_t max3725_write_p0p7  = 0xD0;
-const uint8_t max3725_write_o8o15 = 0xB0;
+// TODO: remvove the addresses that are commented out
+// const uint8_t max3725_write_p0p7  = 0xD0;
+// const uint8_t max3725_write_o8o15 = 0xB0;
+const uint8_t max3725_7b_address_p0p7  = 0b1101000;
+const uint8_t max3725_7b_address_o8o15 = 0b1011000;
 
 /**
  * Parameters for soft 
@@ -251,7 +258,7 @@ uint8_t current_lcd_row       = 0;
 const uint8_t first_row       = 0;
 const uint8_t lcd_row_spacing = 2;
 
-String SW_VERSION_STRING = "0.0.a";
+String SW_VERSION_STRING = "0.0.b";
 String HW_VERSION_STRING = "A01";
 String version_string = "";
 
@@ -492,48 +499,53 @@ void setup(void) {
   // Start server
   server.begin();
 
+  delay(2000);  //TODO: we probably want to remove the delay!
+  /** TODO: This is a temporary note
+   * to say that the LED will illuminate after
+   * just before trying to engage the IO expander
+  */
+  digitalWrite(IND_1,HIGH);  
+  delay(2000); //TODO: we probably want to remove the delay!
+
+
   /**
    * Setup for I2C communication 
-   * to the GPIO expander
-   * Slave address for P0-P7:   1101 0000 (for write)
-   * Slave address for O8-O15:  1011 0000 (for write)
+   * to the GPIO expander.
+   * Wire.begin() does not have to be called
+   * since the display library makes a call to 
+   * it.
+   * Slave address for P0-P7:   1101 000 R/#W 
+   * Slave address for O8-O15:  1011 000 R/#W 
+   * 
+   * Do not provide an argument if/when calling
+   * Wire.begin() if needing to operate in master mode.
+   * 
+   * The MAX7325 requires an I2C 
+   * transaction before it can determine
+   * its address.  This is any 
+   * transaction, meaning an I2C transaction
+   * doesn't necessarily need to target
+   * the MAX7325. It has been confirmed that simply 
+   * updating the display (before these routines) will
+   * allow the MAX7325 to acquire it's I2C address. 
+   * 
+   * For the MAX7325, the P ports are 
+   * open-drain, while the O ports are 
+   * push-pull.  
   */
-  // Wire.begin(max3725_write_p0p7); // Join I2C bus and pass in slave address
-  //TODO do we hae to call the following if the display already uses it?
-  Wire.begin(); // Join I2C bus and pass in slave address
-  
-  // Set only output #1 (p0) high. 
-  Wire.beginTransmission(max3725_write_o8o15); // transmit to device #4
-  Wire.write(0x00);        // send 0b0000 twice so the value takes
-  Wire.write(0x00);        
-  Wire.endTransmission();
+  clear_gpio();
+
+  set_gpio(13);
   delay(1500); 
   
-  Wire.beginTransmission(max3725_write_o8o15); // transmit to device #4
-  Wire.write(0x01);        // send 0b0001 twice so the value takes
-  Wire.write(0x01);  
-  Wire.endTransmission();
-  delay(1500);  
-
-  Wire.beginTransmission(max3725_write_o8o15); // transmit to device #4
-  Wire.write(0x00);        // send 0b0000 twice so the value takes
-  Wire.write(0x00);        
-  Wire.endTransmission();  
- 
- 
-  // Wire.write(0x00);
-  // delay(1000);
-  // Wire.write(0x01);
-  // delay(1000);
-  // Wire.write(0x00);
+  clear_gpio();
+  delay(100);
 }
 
 /**
  * @brief Main application loop
 */
-
-void loop(void)
-{
+void loop(void) {
 
   if(Timer1msFlag == true) {
     Timer1msFlag = false;
@@ -546,7 +558,7 @@ void loop(void)
 
   if(Timer500msFlag == true) {
     Timer500msFlag = false;
-    digitalWrite(IND_1,!(digitalRead(IND_1)));  //Toggle LED Pin
+    digitalWrite(IND_1,!(digitalRead(IND_1)));  //Toggle the health LED
   }
 
   if(Timer1000msFlag == true) {
