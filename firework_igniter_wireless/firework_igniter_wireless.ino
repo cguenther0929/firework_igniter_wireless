@@ -1,6 +1,8 @@
 /*
  * This is the main source file for the ESP8266 WiFi SOM
  * 
+ * TODO: make this less manual <h2>Firework Igniter 0.0.1</h2>
+ * TODO: need to figure out how to prevent certain IO from defaulting to ON
 */
 
 #include <ESPAsyncWebServer.h>
@@ -26,17 +28,29 @@
 #define IND_1   2
 #define IND_2   12
 
+
+/**
+ * Define version string constants
+ * TODO: need to remove HTML_SW_STRING ??
+*/
+String version_string = "";
+String SW_VERSION_STRING = "0.0.2.a";
+String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
+String HW_VERSION_STRING = "A01";
+
 /**
  * Constants (slave addresses)
  * for the MAX3725 GPIO expander
  * The "p" port represents the eight 
  * IO that are of teh open-drain type
  * the "o" port represents the eight 
- * IO that are of the push-pull tyoe
+ * IO that are of the push-pull type
+ * 
+ * The seven-bit addresses shall
+ * be defined here, as the Wire.h
+ * library will automatically add the 
+ * R/#W bit.
 */
-// TODO: remvove the addresses that are commented out
-// const uint8_t max3725_write_p0p7  = 0xD0;
-// const uint8_t max3725_write_o8o15 = 0xB0;
 const uint8_t max3725_7b_address_p0p7  = 0b1101000;
 const uint8_t max3725_7b_address_o8o15 = 0b1011000;
 
@@ -59,6 +73,23 @@ const char* PARAM_INPUT_2 = "state";
  * Webserver object
 */
 AsyncWebServer server(80);
+
+// FSM states
+enum state {
+  UNKNOWN,
+  STATE_1,
+  STATE_2,
+  STATE_3,
+  STATE_4,
+  STATE_5,
+  STATE_6
+};
+
+/**
+ * State tracker 
+ */
+state current_state = UNKNOWN;
+
 
 
 
@@ -84,7 +115,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   </style>
 </head>
 <body>
-  <h2>Firework Igniter</h2>
+  <h2>Firework Igniter 0.0.2.a</h2>
   %BUTTONPLACEHOLDER%
 <script>function toggleCheckbox(element) {
   var xhr = new XMLHttpRequest();
@@ -98,17 +129,50 @@ const char index_html[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 
+// String processor_sw_version(const String& var) {
+//   if(var == "SWVER"){
+//     String sw_ver = "";
+//     // <h2>Firework Igniter</h2>
+//     sw_ver += "Firework Igniter ";
+//     sw_ver += SW_VERSION_STRING;
+//     // sw_ver += " 0.1.0.b ";
+//   }
+//   return String();
+// }
 
 // Replaces placeholder with button section in your web page
+//TODO: need to make the following IDs and output values correct.
+//TODO: just an example header string :::  <title>Firework Igniter + " " + %SWVER%</title>
 String processor(const String& var){
   //Serial.println(var);
   if(var == "BUTTONPLACEHOLDER"){
     String buttons = "";
     buttons += "<h4>FUSE 1</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"12\" " + outputState(12) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 2</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"5\" " + outputState(5) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 3</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"16\" " + outputState(16) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 2</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"2\" " + outputState(2) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 3</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"3\" " + outputState(3) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 4</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"4\" " + outputState(4) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 5</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"5\" " + outputState(5) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 6</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"6\" " + outputState(6) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 7</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"7\" " + outputState(7) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 8</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"8\" " + outputState(8) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 9</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"9\" " + outputState(9) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 10</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"10\" " + outputState(10) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 11</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"11\" " + outputState(11) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 12</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"12\" " + outputState(12) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 13</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"13\" " + outputState(13) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 14</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"14\" " + outputState(14) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 15</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"15\" " + outputState(15) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 16</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"16\" " + outputState(16) + "><span class=\"slider\"></span></label>";
     return buttons;
   }
+  // else if(var == "SWVER"){
+  //   String sw_ver = "";
+  //   // <h2>Firework Igniter</h2>
+  //   sw_ver += "<h2>Firework Igniter ";
+  //   sw_ver += SW_VERSION_STRING;
+  //   sw_ver += "</h2>";
+  //   // sw_ver += " 0.1.0.b ";
+  // }
   return String();
 }
 
@@ -121,82 +185,10 @@ String outputState(int output){
   }
 }
 
-
-// const char index_html[] PROGMEM = R"rawliteral(
-// <!DOCTYPE HTML><html>
-//   <head>
-//     <meta name="viewport" content="width=device-width, initial-scale=1">
-//     <style>
-//       html {
-//       font-family: Arial;
-//       display: inline-block;
-//       margin: 0px auto;
-//       text-align: center;
-//       }
-//       h2 { font-size: 3.0rem; }
-//       p { font-size: 3.0rem; }
-//       .units { font-size: 1.2rem; }
-//       .dht-labels{
-//         font-size: 1.5rem;
-//         vertical-align:middle;
-//         padding-bottom: 15px;
-//       }
-//     </style>
-//   </head>
-//   <body>
-//     <h2>ESP8266 DHT Server</h2>
-//     <p>
-//       <span class="dht-labels">Temperature</span> 
-//       <span id="temperature">%TEMPERATURE%</span>
-//       <sup class="units">&deg;C</sup>
-//     </p>
-//     <p>
-//       <span class="dht-labels">Humidity</span>
-//       <span id="humidity">%HUMIDITY%</span>
-//       <sup class="units">%</sup>
-//     </p>
-//   </body>
-//   <script>
-//   setInterval(function ( ) {
-//     var xhttp = new XMLHttpRequest();
-//     xhttp.onreadystatechange = function() {
-//       if (this.readyState == 4 && this.status == 200) {
-//         document.getElementById("temperature").innerHTML = this.responseText;
-//       }
-//     };
-//     xhttp.open("GET", "/temperature", true);
-//     xhttp.send();
-//   }, 10000 ) ;
-
-//   setInterval(function ( ) {
-//     var xhttp = new XMLHttpRequest();
-//     xhttp.onreadystatechange = function() {
-//       if (this.readyState == 4 && this.status == 200) {
-//         document.getElementById("humidity").innerHTML = this.responseText;
-//       }
-//     };
-//     xhttp.open("GET", "/humidity", true);
-//     xhttp.send();
-//   }, 10000 ) ;
-//   </script>
-//   </html>)rawliteral";
-
-// // Replaces placeholder with DHT values
-// String processor(const String& var){
-//   //Serial.println(var);
-//   if(var == "TEMPERATURE"){
-//     return String("test temp");
-//   }
-//   else if(var == "HUMIDITY"){
-//     return String("test h");
-//   }
-//   return String();
-// }
-
 // END OF TEST CODE PASTED IN FROM https://randomnerdtutorials.com/esp8266-nodemcu-access-point-ap-web-server/
 
 
-
+//TODO: clean up the following?
 /**
  * JSON and input
  * data constructors
@@ -207,21 +199,6 @@ String outputState(int output){
 // DeserializationError json_err;
 // char data_input_string[MAX_RX_BUF_ELEMENTS];
 
-// FSM states
-enum state {
-  UNKNOWN,
-  STATE_1,
-  STATE_2,
-  STATE_3,
-  STATE_4,
-  STATE_5,
-  STATE_6
-};
-
-/**
- * State tracker 
- */
-state current_state = UNKNOWN;
 
 /**
  * The Sleep bit, driven
@@ -258,9 +235,9 @@ uint8_t current_lcd_row       = 0;
 const uint8_t first_row       = 0;
 const uint8_t lcd_row_spacing = 2;
 
-String SW_VERSION_STRING = "0.0.b";
-String HW_VERSION_STRING = "A01";
-String version_string = "";
+// String SW_VERSION_STRING = "0.0.b";
+// String HW_VERSION_STRING = "A01";
+// String version_string = "";
 
 
 /**
@@ -417,13 +394,6 @@ void setup(void) {
   u8x8.print(String("HW V: " + HW_VERSION_STRING));
   delay(3500);
   
-  
-  // }
-  
-  // u8x8.setCursor(0,rowTemp);
-  // u8x8.print(__TIME__);
-  // delay(3000);
-  // lcdRun();
 
   /* END ... OF CODE PASTED IN*/
 
@@ -476,36 +446,55 @@ void setup(void) {
   });
 
   // Send a GET request to <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
+  //TODO: need to move these constants up top
   server.on("/update", HTTP_GET, [] (AsyncWebServerRequest *request) {
     String inputMessage1;
     String inputMessage2;
-    // GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
+    uint8_t input_message1_value = 0;
+    uint8_t input_message2_value = 0;
+
+    
+    /**
+     * GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
+     * Here is where we set the output based on the the fuse value selected
+    */
     if (request->hasParam(PARAM_INPUT_1) && request->hasParam(PARAM_INPUT_2)) {
       inputMessage1 = request->getParam(PARAM_INPUT_1)->value();
       inputMessage2 = request->getParam(PARAM_INPUT_2)->value();
-      digitalWrite(inputMessage1.toInt(), inputMessage2.toInt());
+      input_message1_value = inputMessage1.toInt();
+      input_message2_value = inputMessage2.toInt();
+      
+      //TODO: cjg put the following in so we only 
+      //TODO: write to the digital IO if the output 
+      //TODO: is correct.
+      if(input_message1_value == 12) {
+        // digitalWrite(inputMessage1.toInt(), inputMessage2.toInt());     //This is the function where output states are changed
+        digitalWrite(input_message1_value, input_message2_value);     //This is the function where output states are changed
+      }
+
     }
     else {
       inputMessage1 = "No message sent";
       inputMessage2 = "No message sent";
     }
+    
     Serial.print("GPIO: ");
-    Serial.print(inputMessage1);
+    Serial.print(input_message1_value);
     Serial.print(" - Set to: ");
-    Serial.println(inputMessage2);
+    Serial.println(input_message2_value);
     request->send(200, "text/plain", "OK");
   });
 
   // Start server
   server.begin();
 
-  delay(2000);  //TODO: we probably want to remove the delay!
+  delay(200);  //TODO: we probably want to remove the delay!
   /** TODO: This is a temporary note
    * to say that the LED will illuminate after
    * just before trying to engage the IO expander
   */
   digitalWrite(IND_1,HIGH);  
-  delay(2000); //TODO: we probably want to remove the delay!
+  delay(200); //TODO: we probably want to remove the delay!
 
 
   /**
@@ -536,10 +525,10 @@ void setup(void) {
   clear_gpio();
 
   set_gpio(13);
-  delay(1500); 
+  delay(200); 
   
   clear_gpio();
-  delay(100);
+  delay(200);
 }
 
 /**

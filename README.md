@@ -31,3 +31,5 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 
 ### VERSIONS ###
 * V0.0.1.a -- The GPIO expander is working well. Functions have been defined that will clear all outputs, or allow the user to define (1 through 16) which output shall be active.  The asynchronous server is working, but many more switches need to be defined.  
+
+* v0.0.2.a -- All 16 fuses now show up on the browser.  Need to figure out how to make sure they default to LOW.  Also, it needs to be determined how to display the SW version on the webpage in a way that more automatic sense.  
