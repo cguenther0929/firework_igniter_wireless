@@ -1,8 +1,7 @@
 /*
  * This is the main source file for the ESP8266 WiFi SOM
  * 
- * TODO: make this less manual <h2>Firework Igniter 0.0.1</h2>
- * TODO: need to figure out how to prevent certain IO from defaulting to ON
+ * TODO: buttons 4,5, 14, and 16 default to ON
 */
 
 #include <ESPAsyncWebServer.h>
@@ -12,10 +11,6 @@
 #include <Ticker.h>
 #include <U8x8lib.h>
 #include <Wire.h>
-// #include <Hash.h>
-// #include <ArduinoJson.h>
-// #include <WiFiClientSecure.h>
-// #include "EMailSender.h"
 
 /**
  * Uncomment the following 
@@ -34,7 +29,7 @@
  * TODO: need to remove HTML_SW_STRING ??
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.0.2.a";
+String SW_VERSION_STRING = "0.1.0.a";
 String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
 String HW_VERSION_STRING = "A01";
 
@@ -91,8 +86,6 @@ enum state {
 state current_state = UNKNOWN;
 
 
-
-
 // START OF TEST CODE PASTED IN FROM https://randomnerdtutorials.com/esp8266-nodemcu-access-point-ap-web-server/
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -115,8 +108,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   </style>
 </head>
 <body>
-  <h2>Firework Igniter 0.0.2.a</h2>
-  %BUTTONPLACEHOLDER%
+  %HTMLPLACEHOLDER%
 <script>function toggleCheckbox(element) {
   var xhr = new XMLHttpRequest();
   if(element.checked){ xhr.open("GET", "/update?output="+element.id+"&state=1", true); }
@@ -129,50 +121,34 @@ const char index_html[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 
-// String processor_sw_version(const String& var) {
-//   if(var == "SWVER"){
-//     String sw_ver = "";
-//     // <h2>Firework Igniter</h2>
-//     sw_ver += "Firework Igniter ";
-//     sw_ver += SW_VERSION_STRING;
-//     // sw_ver += " 0.1.0.b ";
-//   }
-//   return String();
-// }
-
-// Replaces placeholder with button section in your web page
+// Replaces HTML placeholder an generate button list
 //TODO: need to make the following IDs and output values correct.
-//TODO: just an example header string :::  <title>Firework Igniter + " " + %SWVER%</title>
+//TODO:  Example H2 title :: <h2>Firework Igniter 0.0.2.a</h2>
 String processor(const String& var){
   //Serial.println(var);
-  if(var == "BUTTONPLACEHOLDER"){
+  if(var == "HTMLPLACEHOLDER"){
     String buttons = "";
-    buttons += "<h4>FUSE 1</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"12\" " + outputState(12) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 2</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"2\" " + outputState(2) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 3</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"3\" " + outputState(3) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 4</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"4\" " + outputState(4) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 5</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"5\" " + outputState(5) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 6</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"6\" " + outputState(6) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 7</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"7\" " + outputState(7) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 8</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"8\" " + outputState(8) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 9</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"9\" " + outputState(9) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 10</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"10\" " + outputState(10) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 11</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"11\" " + outputState(11) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 12</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"12\" " + outputState(12) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 13</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"13\" " + outputState(13) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 14</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"14\" " + outputState(14) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 15</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"15\" " + outputState(15) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>FUSE 16</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"16\" " + outputState(16) + "><span class=\"slider\"></span></label>";
+    buttons += "<h2>FIREWORK IGNITER ";
+    buttons += SW_VERSION_STRING;
+    buttons += "</h2>";
+    buttons += "<h4>FUSE 1</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"101\" " + outputState(101) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 2</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"102\" " + outputState(102) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 3</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"103\" " + outputState(103) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 4</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"104\" " + outputState(104) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 5</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"105\" " + outputState(105) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 6</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"106\" " + outputState(106) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 7</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"107\" " + outputState(107) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 8</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"108\" " + outputState(108) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 9</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"109\" " + outputState(109) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 10</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"110\" " + outputState(110) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 11</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"111\" " + outputState(111) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 12</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"112\" " + outputState(112) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 13</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"113\" " + outputState(113) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 14</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"114\" " + outputState(114) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 15</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"115\" " + outputState(115) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>FUSE 16</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"116\" " + outputState(116) + "><span class=\"slider\"></span></label>";
     return buttons;
   }
-  // else if(var == "SWVER"){
-  //   String sw_ver = "";
-  //   // <h2>Firework Igniter</h2>
-  //   sw_ver += "<h2>Firework Igniter ";
-  //   sw_ver += SW_VERSION_STRING;
-  //   sw_ver += "</h2>";
-  //   // sw_ver += " 0.1.0.b ";
-  // }
   return String();
 }
 
@@ -187,28 +163,6 @@ String outputState(int output){
 
 // END OF TEST CODE PASTED IN FROM https://randomnerdtutorials.com/esp8266-nodemcu-access-point-ap-web-server/
 
-
-//TODO: clean up the following?
-/**
- * JSON and input
- * data constructors
- */
-// #define MAX_RX_BUF_INDEX          511
-// #define MAX_RX_BUF_ELEMENTS       MAX_RX_BUF_INDEX + 1
-// StaticJsonDocument<256> json_doc;
-// DeserializationError json_err;
-// char data_input_string[MAX_RX_BUF_ELEMENTS];
-
-
-/**
- * The Sleep bit, driven
- * by the application processor,
- * defines when the WiFi module
- * shall go into deep sleep mode.  
- * Most likely, this bit will only
- * be looked at after booting.  
- */
-// #define SLEEP_BIT                 4
 
 /**
  * WiFi Parameters
@@ -235,10 +189,6 @@ uint8_t current_lcd_row       = 0;
 const uint8_t first_row       = 0;
 const uint8_t lcd_row_spacing = 2;
 
-// String SW_VERSION_STRING = "0.0.b";
-// String HW_VERSION_STRING = "A01";
-// String version_string = "";
-
 
 /**
  * Data imported 
@@ -247,44 +197,29 @@ const uint8_t lcd_row_spacing = 2;
 char buf_wifi_password[32];
 char buf_wifi_ssid[32];
 
-// char buf_hyg_name[32];                  // Email address hygrometer used to send emails
-// char buf_hyg_smtp2go_account[64];       // Email address hygrometer used to send emails
-// char buf_hyg_smtp2go_password[64];      // Account password for aforementioned email address 
-// char buf_recipient_email_addr[64];      // Email address of recipient
-// char buf_sender_email_addr[64];         // Email address of sender
-
-// #define TEMP_BUF_SIZE             64    // Size of the temporary buffer
-// char buf_temp[TEMP_BUF_SIZE];           // Temporary buffer that can be used for building strings
-
-// float humidity_1        = 0;
-// float humidity_2        = 0;
-// float temperature_1     = 0;
-// float temperature_2     = 0;
-// float battery_v         = 0;
-// bool battery_too_low    = false; 
-
-/**
- * Email related parameters
- */
-// String email_message = "";
-// char server[] = "mail.smtp2go.com";   //CJG added this line 7/27/22
-
 
 /**
  * Timer parameters
  */
-long            tmr1_write_val = 3030;   // Empirically derived to generate a 1ms tick timer.
-unsigned int    ms_ticks_1=0;
-unsigned int    ms_ticks_50=0;
-unsigned int    ms_ticks_500=0;
-unsigned int    ms_ticks_1000=0;
+long            tmr1_write_val  = 3030;   // Empirically derived to generate a 1ms tick timer.
+unsigned int    ms_ticks_1      =0;
+unsigned int    ms_ticks_50     =0;
+unsigned int    ms_ticks_500    =0;
+unsigned int    ms_ticks_1000   =0;
 
-bool            Timer1msFlag = false;
-bool            Timer50msFlag = false;
-bool            Timer500msFlag = false;
-bool            Timer1000msFlag = false;
+bool            Timer1msFlag        = false;
+bool            Timer50msFlag       = false;
+bool            Timer500msFlag      = false;
+bool            Timer1000msFlag     = false;
+bool            timer_running       = false;
+// bool            timer_expired       = false;
 
-long            seconds_counter = 0;        //32bit value 4.264....e9
+long            seconds_counter     = 0;        //32bit value 4.264....e9
+long            tick_1ms_counter   = 0;        //32bit value.  At 20ms, this can count to 8.5899e7 seconds
+
+float           timeout_seconds     = 3.0;
+// float           timeout_1ms_ticks   = timeout_seconds/0.001;
+float           timeout_1ms_ticks   = 3000.0;
 
 
 void lcdBold(bool aVal) {
@@ -328,16 +263,9 @@ void ICACHE_RAM_ATTR onTimerISR(){
   
 
 }
-
-// void lcdRun() {
-//   lcdBold(false);
-//   u8x8.clear(); // ("0123456789012345")
-//   u8x8.setCursor(0,rowCups); u8x8.print(F("Cup: Run:OFF"));
-//   u8x8.setCursor(0,rowState); u8x8.print(F("Now:STOPPED "));
-//   u8x8.setCursor(0,rowTemp); u8x8.print(F("Tmp: Rly: "));
-//   u8x8.setCursor(0,rowTime); u8x8.print(F("Tim: Min: "));
-
-// }
+ /**
+  * @brief BEGINNING OF SETUP ROUTINE
+ */
 
 void setup(void) {
   
@@ -347,13 +275,10 @@ void setup(void) {
   pinMode(IND_1, OUTPUT);
   pinMode(IND_2, OUTPUT);
   
-  // pinMode(SLEEP_BIT, INPUT);
-  // pinMode(WIFI_ERR_LED, OUTPUT);
-
   // digitalWrite(WIFI_ERR_LED, LOW);
-  digitalWrite(IND_1, LOW);  // The indicator is active high
+  digitalWrite(IND_1, LOW);  // The indicator is active high //IO 12
   digitalWrite(IND_2, LOW);
-
+  
   #if defined(ENABLE_LOGGING)
     Serial.begin(9600);
     Serial.setTimeout(50);    //Timeout value in ms -- max is 1000
@@ -361,16 +286,12 @@ void setup(void) {
   
   current_state = STATE_1;
 
-  /* START ... TEST CODE PASTED IN STARTS HERE*/
+  /* BEGINNING OF DISPLAY ROUTINE*/
 
   u8x8.begin();
   lcdBold(true); // You MUST make this call here to set a Font
-  
-  // while(true){
-    
-    // u8x8.setPowerSave(0); // Too lazy to find out if I need this
-    u8x8.clear();
-    // u8x8.setCursor(0,rowCups);
+  u8x8.clear();
+  // u8x8.setCursor(0,rowCups);
 
   u8x8.setCursor(0,first_row);
   u8x8.print(F("FIREWORK IGNITER"));
@@ -393,14 +314,9 @@ void setup(void) {
   current_lcd_row += lcd_row_spacing;
   u8x8.print(String("HW V: " + HW_VERSION_STRING));
   delay(3500);
-  
 
-  /* END ... OF CODE PASTED IN*/
+  /* END OF DISPLAY ROUTINE*/
 
-  //Initialize Ticker every 0.05s
-  timer1_attachInterrupt(onTimerISR);
-  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
-  timer1_write(tmr1_write_val);        //.05s 
 
   #if defined(ENABLE_LOGGING)
     Serial.println("Module just rebooted.");
@@ -417,7 +333,7 @@ void setup(void) {
   IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(IP);
-  
+
   u8x8.clear();
   current_lcd_row = 0; 
   u8x8.setCursor(0,first_row);
@@ -427,14 +343,6 @@ void setup(void) {
   current_lcd_row += lcd_row_spacing;
   u8x8.print(IP);
   delay(2500);
-
-  u8x8.clear();
-  current_lcd_row = 0;
-  u8x8.setCursor(0,current_lcd_row);
-  current_lcd_row += lcd_row_spacing;
-  u8x8.print(String("FIREWORK IGNITER"));
-  u8x8.setCursor(0,current_lcd_row);
-  u8x8.print(String("READY ..."));
 
   // Print ESP8266 Local IP Address
   Serial.print("Local IP address: ");
@@ -453,23 +361,40 @@ void setup(void) {
     uint8_t input_message1_value = 0;
     uint8_t input_message2_value = 0;
 
-    
+
+
+  // server.querySelector("#stop").addEventListener("click", () => {
+  //   const switches = server.querySelectorAll(".switch input");
+  //   for (let s of switches) {
+  //     s.checked = false;
+  //   }
+  // });
+  // document.querySelector("#stop").addEventListener("click", () => {
+  //   const switches = document.querySelectorAll(".switch input");
+  //   for (let s of switches) {
+  //     s.checked = false;
+  //   }
+  // });
+
+
     /**
      * GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
      * Here is where we set the output based on the the fuse value selected
     */
     if (request->hasParam(PARAM_INPUT_1) && request->hasParam(PARAM_INPUT_2)) {
-      inputMessage1 = request->getParam(PARAM_INPUT_1)->value();
-      inputMessage2 = request->getParam(PARAM_INPUT_2)->value();
+      inputMessage1 = request->getParam(PARAM_INPUT_1)->value();   //TODO: Temp info PARAM_INPUT_1 == "output"
+      inputMessage2 = request->getParam(PARAM_INPUT_2)->value();   //TODO: temp info PARAM_INPUT_2 == "state"
       input_message1_value = inputMessage1.toInt();
       input_message2_value = inputMessage2.toInt();
       
       //TODO: cjg put the following in so we only 
       //TODO: write to the digital IO if the output 
       //TODO: is correct.
+      input_message1_value -= 100;
       if(input_message1_value == 12) {
-        // digitalWrite(inputMessage1.toInt(), inputMessage2.toInt());     //This is the function where output states are changed
+        Serial.println("Starting timer and setting output.");
         digitalWrite(input_message1_value, input_message2_value);     //This is the function where output states are changed
+        timer_running = true;
       }
 
     }
@@ -497,6 +422,7 @@ void setup(void) {
   delay(200); //TODO: we probably want to remove the delay!
 
 
+//TODO: this following is for testing only
   /**
    * Setup for I2C communication 
    * to the GPIO expander.
@@ -529,7 +455,13 @@ void setup(void) {
   
   clear_gpio();
   delay(200);
-}
+
+  //Initialize Ticker every 0.05s
+  timer1_attachInterrupt(onTimerISR);
+  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
+  timer1_write(tmr1_write_val);        //.05s 
+
+} /* END SETUP ROUTINE*/
 
 /**
  * @brief Main application loop
@@ -539,15 +471,32 @@ void loop(void) {
   if(Timer1msFlag == true) {
     Timer1msFlag = false;
     // StateEvaluation();
+    if(timer_running){
+      tick_1ms_counter++;
+    }
+    else {
+      tick_1ms_counter = 0;
+    }
+    
+    if(tick_1ms_counter >= timeout_1ms_ticks) {
+      Serial.println("Timeout occurred.");
+      clear_gpio();
+      //TODO: the following is in to test the timeout function
+      digitalWrite(IND_2, LOW);     //This is the function where output states are changed
+      // timer_expired = true;
+      tick_1ms_counter = 0;
+      timer_running = false;  //TODO: do we want to turn this off here?
+    }
   }
   
   if(Timer50msFlag == true) {
     Timer50msFlag = false;
+    digitalWrite(IND_1,!(digitalRead(IND_1)));  //Toggle the health LED
   }
 
   if(Timer500msFlag == true) {
     Timer500msFlag = false;
-    digitalWrite(IND_1,!(digitalRead(IND_1)));  //Toggle the health LED
+    // digitalWrite(IND_1,!(digitalRead(IND_1)));  //Toggle the health LED
   }
 
   if(Timer1000msFlag == true) {
@@ -555,4 +504,4 @@ void loop(void) {
     (seconds_counter == 300000)?(seconds_counter = 0):(seconds_counter++);
     
   }
-}
+}  /*END MAIN LOOP*/
