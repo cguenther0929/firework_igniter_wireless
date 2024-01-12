@@ -27,7 +27,7 @@
  * TODO: need to remove HTML_SW_STRING ??
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.1.0.a";
+String SW_VERSION_STRING = "0.1.1.a";
 String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
 String HW_VERSION_STRING = "A01";
 
@@ -124,6 +124,18 @@ const char index_html[] PROGMEM = R"rawliteral(
   xhr.send();
 }
 </script>
+
+
+<FORM action=\"/\" method=\"post\">
+<P>
+<br>
+Fuse Current: <INPUT type="text" name="trip_pt" size="5" value="50"<br>
+<br><br>
+<input type="submit" name="action" value="Update">
+</P>
+</FORM>
+
+
 </body>
 </html>
 )rawliteral";
@@ -230,8 +242,6 @@ void ICACHE_RAM_ATTR onTimerISR(){
   else {
     ms_ticks_1++;
   }
-  
-
 }
 
  /**
@@ -325,6 +335,13 @@ void setup(void) {
     uint8_t input_message1_value = 0;
     uint8_t input_message2_value = 0;
 
+
+   #if defined(ENABLE_LOGGING)
+      Serial.print("GPIO: ");
+      Serial.print(input_message1_value);
+      Serial.print(" - Set to: ");
+      Serial.println(input_message2_value);
+    #endif
 
     /**
      * GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>

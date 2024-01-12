@@ -35,3 +35,6 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 * v0.0.2.a -- All 16 fuses now show up on the browser.  Need to figure out how to make sure they default to LOW.  Also, it needs to be determined how to display the SW version on the webpage in a way that is more automatic.  
 
 * v0.1.0.a -- A value of 100 was added to all IO so as to get away from built in IO.  It doesn't seem obvious as to what's going on under the hood, but sliders seem to be heavily tied to Arduino IO.  Thus if an output is on, the slider is on.  Taking GPIO 1 as an example, GPIO 1 is now 101 (avoiding built-in IO). This allows the operation to focus on GPIO expander IO.  All sliders now default to OFF.  The timeout feature kind of works, but needs to be improved.  
+
+* v0.1.1.a -- The timeout feature was improved -- now the timer only starts running when an output transitions from inactive to active.  There is now a form on the bottom of the webpage that allows the user to enter a value, however, the code needs to be written to accept an updated value.  When submit is clicked, it seems the webpage goes awry.  
+

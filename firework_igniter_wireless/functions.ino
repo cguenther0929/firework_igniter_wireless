@@ -53,3 +53,37 @@
 
         return true;
     }
+
+
+    // void ICACHE_RAM_ATTR onTimerISR(){
+    //     timer1_write(tmr1_write_val);
+
+    //     Timer1msFlag = true;
+
+    //     if(ms_ticks_1 == 50) {
+    //         ms_ticks_1 = 0;
+    //         Timer50msFlag = true;
+    //         if(ms_ticks_50 == 10) {
+    //         ms_ticks_50 = 0;               //Reset centi-seconds
+    //         Timer500msFlag = true;
+            
+    //         if(ms_ticks_500 == 2) {         //See if we need to roll over
+    //             ms_ticks_500 = 0;
+    //             Timer1000msFlag = true;  
+    //         }
+    //         else {
+    //             ms_ticks_500++;              //Increase 500ms timer
+    //         }
+
+    //         }
+    //         else {
+    //             ms_ticks_50++;
+    //         }
+            
+    //     }
+    //     else {
+    //         ms_ticks_1++;
+    //     }
+  
+
+    // }
