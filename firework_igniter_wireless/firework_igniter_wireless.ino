@@ -1,9 +1,7 @@
 /*
  * This is the main source file for the ESP8266 WiFi SOM
  * 
- * TODO: buttons 4,5, 14, and 16 default to ON
 */
-
 #include <ESPAsyncWebServer.h>
 #include <ESPAsyncTCP.h>
 #include <ESP8266WiFi.h>
@@ -63,6 +61,13 @@ const char* password = "123456789"; //Minimum of eight characters here
 const char* PARAM_INPUT_1 = "output";
 const char* PARAM_INPUT_2 = "state";
 
+/**
+ * @brief LCD parameters
+*/
+U8X8_SH1106_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE);
+uint8_t current_lcd_row       = 0;
+const uint8_t first_row       = 0;
+const uint8_t lcd_row_spacing = 2;
 
 /**
  * Webserver object
@@ -86,8 +91,11 @@ enum state {
 state current_state = UNKNOWN;
 
 
-// START OF TEST CODE PASTED IN FROM https://randomnerdtutorials.com/esp8266-nodemcu-access-point-ap-web-server/
-
+/**
+ * HTML character string to 
+ * return upon get request from
+ * client
+*/
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html>
 <head>
@@ -121,9 +129,10 @@ const char index_html[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 
-// Replaces HTML placeholder an generate button list
-//TODO: need to make the following IDs and output values correct.
-//TODO:  Example H2 title :: <h2>Firework Igniter 0.0.2.a</h2>
+/**
+ * Replaces HTML placeholder 
+ * and generate button list
+*/
 String processor(const String& var){
   //Serial.println(var);
   if(var == "HTMLPLACEHOLDER"){
@@ -161,43 +170,6 @@ String outputState(int output){
   }
 }
 
-// END OF TEST CODE PASTED IN FROM https://randomnerdtutorials.com/esp8266-nodemcu-access-point-ap-web-server/
-
-
-/**
- * WiFi Parameters
- */
-#define WIFI_CONNECT_TIMEOUT_S    10
-WiFiClient client;
-
-/**
- * Serial port 
- * parameters
- */
-#define SER_TIMEOUT_MS            500
-
-/**
- * Error LED
-*/
-// #define WIFI_ERR_LED              12
-
-/**
- * @brief LCD parameters
-*/
-U8X8_SH1106_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE);
-uint8_t current_lcd_row       = 0;
-const uint8_t first_row       = 0;
-const uint8_t lcd_row_spacing = 2;
-
-
-/**
- * Data imported 
- * from JSON string
- */
-char buf_wifi_password[32];
-char buf_wifi_ssid[32];
-
-
 /**
  * Timer parameters
  */
@@ -212,14 +184,12 @@ bool            Timer50msFlag       = false;
 bool            Timer500msFlag      = false;
 bool            Timer1000msFlag     = false;
 bool            timer_running       = false;
-// bool            timer_expired       = false;
 
 long            seconds_counter     = 0;        //32bit value 4.264....e9
-long            tick_1ms_counter   = 0;        //32bit value.  At 20ms, this can count to 8.5899e7 seconds
+long            tick_1ms_counter    = 0;        //32bit value.  At 20ms, this can count to 8.5899e7 seconds
 
-float           timeout_seconds     = 3.0;
-// float           timeout_1ms_ticks   = timeout_seconds/0.001;
-float           timeout_1ms_ticks   = 3000.0;
+uint8_t         timeout_seconds     = 4.0;
+uint16_t        timeout_1ms_ticks   = timeout_seconds/0.001;
 
 
 void lcdBold(bool aVal) {
@@ -263,6 +233,7 @@ void ICACHE_RAM_ATTR onTimerISR(){
   
 
 }
+
  /**
   * @brief BEGINNING OF SETUP ROUTINE
  */
@@ -287,27 +258,19 @@ void setup(void) {
   current_state = STATE_1;
 
   /* BEGINNING OF DISPLAY ROUTINE*/
-
   u8x8.begin();
-  lcdBold(true); // You MUST make this call here to set a Font
+  lcdBold(true); // This call is necessary to set a font
   u8x8.clear();
-  // u8x8.setCursor(0,rowCups);
 
   u8x8.setCursor(0,first_row);
   u8x8.print(F("FIREWORK IGNITER"));
-  // u8x8.setCursor(0,row_second);
-  // u8x8.print(F("STARTING..."));
   delay(2500);
-  // u8x8.setCursor(0,rowState);
   
   u8x8.clear();
   current_lcd_row = 0;
   u8x8.setCursor(0,current_lcd_row);
   current_lcd_row += lcd_row_spacing;
-  // u8x8.print(__DATE__);
-  // u8x8.setCursor(0,rowState);
   
-  // u8x8.setCursor(0,current_lcd_row);
   u8x8.print(String("SW V: " + SW_VERSION_STRING));
 
   u8x8.setCursor(0,current_lcd_row);
@@ -353,28 +316,14 @@ void setup(void) {
     request->send_P(200, "text/html", index_html, processor);
   });
 
-  // Send a GET request to <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
-  //TODO: need to move these constants up top
+  /**
+   * Send a GET request to <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
+  */
   server.on("/update", HTTP_GET, [] (AsyncWebServerRequest *request) {
     String inputMessage1;
     String inputMessage2;
     uint8_t input_message1_value = 0;
     uint8_t input_message2_value = 0;
-
-
-
-  // server.querySelector("#stop").addEventListener("click", () => {
-  //   const switches = server.querySelectorAll(".switch input");
-  //   for (let s of switches) {
-  //     s.checked = false;
-  //   }
-  // });
-  // document.querySelector("#stop").addEventListener("click", () => {
-  //   const switches = document.querySelectorAll(".switch input");
-  //   for (let s of switches) {
-  //     s.checked = false;
-  //   }
-  // });
 
 
     /**
@@ -387,15 +336,30 @@ void setup(void) {
       input_message1_value = inputMessage1.toInt();
       input_message2_value = inputMessage2.toInt();
       
-      //TODO: cjg put the following in so we only 
-      //TODO: write to the digital IO if the output 
-      //TODO: is correct.
+      
+      /**
+       * Each IO had 100 added to it
+       * in order to avoid IO values 
+       * within the Arduino, so
+       * we must remove 100 from 
+       * the value to get back to 
+       * the originally intended IO
+       * value.
+      */
       input_message1_value -= 100;
-      if(input_message1_value == 12) {
-        Serial.println("Starting timer and setting output.");
-        digitalWrite(input_message1_value, input_message2_value);     //This is the function where output states are changed
+      // if(input_message1_value == 12) {
+        
+      set_gpio(input_message1_value);
+      digitalWrite(input_message1_value, input_message2_value);     //This is the function where output states are changed //TODO: we need to remove the digital write
+      
+      if(input_message2_value == 1) {     //This means the value transitioned from OFF to ON
+        #if defined(ENABLE_LOGGING)
+          Serial.println("Timeout timer started.");
+        #endif
         timer_running = true;
+
       }
+      // }
 
     }
     else {
@@ -403,58 +367,19 @@ void setup(void) {
       inputMessage2 = "No message sent";
     }
     
-    Serial.print("GPIO: ");
-    Serial.print(input_message1_value);
-    Serial.print(" - Set to: ");
-    Serial.println(input_message2_value);
+    #if defined(ENABLE_LOGGING)
+      Serial.print("GPIO: ");
+      Serial.print(input_message1_value);
+      Serial.print(" - Set to: ");
+      Serial.println(input_message2_value);
+    #endif
+
     request->send(200, "text/plain", "OK");
   });
 
   // Start server
   server.begin();
 
-  delay(200);  //TODO: we probably want to remove the delay!
-  /** TODO: This is a temporary note
-   * to say that the LED will illuminate after
-   * just before trying to engage the IO expander
-  */
-  digitalWrite(IND_1,HIGH);  
-  delay(200); //TODO: we probably want to remove the delay!
-
-
-//TODO: this following is for testing only
-  /**
-   * Setup for I2C communication 
-   * to the GPIO expander.
-   * Wire.begin() does not have to be called
-   * since the display library makes a call to 
-   * it.
-   * Slave address for P0-P7:   1101 000 R/#W 
-   * Slave address for O8-O15:  1011 000 R/#W 
-   * 
-   * Do not provide an argument if/when calling
-   * Wire.begin() if needing to operate in master mode.
-   * 
-   * The MAX7325 requires an I2C 
-   * transaction before it can determine
-   * its address.  This is any 
-   * transaction, meaning an I2C transaction
-   * doesn't necessarily need to target
-   * the MAX7325. It has been confirmed that simply 
-   * updating the display (before these routines) will
-   * allow the MAX7325 to acquire it's I2C address. 
-   * 
-   * For the MAX7325, the P ports are 
-   * open-drain, while the O ports are 
-   * push-pull.  
-  */
-  clear_gpio();
-
-  set_gpio(13);
-  delay(200); 
-  
-  clear_gpio();
-  delay(200);
 
   //Initialize Ticker every 0.05s
   timer1_attachInterrupt(onTimerISR);
@@ -483,7 +408,6 @@ void loop(void) {
       clear_gpio();
       //TODO: the following is in to test the timeout function
       digitalWrite(IND_2, LOW);     //This is the function where output states are changed
-      // timer_expired = true;
       tick_1ms_counter = 0;
       timer_running = false;  //TODO: do we want to turn this off here?
     }
