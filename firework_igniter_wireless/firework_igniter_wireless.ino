@@ -1,3 +1,12 @@
+/**
+ * TODO: A lot of button progress was made, but it still doesn't 
+ * TODO: appear to submit the value.  In the <form /> definition, 
+ * TODO: it seems to crash if we make the method a post instead of get.
+ * 
+ * This might be a good tutorial: https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_form_method
+ * 
+ * 
+*/
 /*
  * This is the main source file for the ESP8266 WiFi SOM
  * 
@@ -27,7 +36,7 @@
  * TODO: need to remove HTML_SW_STRING ??
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.1.1.a";
+String SW_VERSION_STRING = "0.1.2.a";
 String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
 String HW_VERSION_STRING = "A01";
 
@@ -126,13 +135,10 @@ const char index_html[] PROGMEM = R"rawliteral(
 </script>
 
 
-<FORM action=\"/\" method=\"post\">
-<P>
+<FORM action="/" method="get">
 <br>
-Fuse Current: <INPUT type="text" name="trip_pt" size="5" value="50"<br>
-<br><br>
-<input type="submit" name="action" value="Update">
-</P>
+Fuse Current: <INPUT type="text" name="fuse_value" size="5" value="50"<br>
+<input type="submit" value="SUBMIT">
 </FORM>
 
 
@@ -343,9 +349,25 @@ void setup(void) {
       Serial.println(input_message2_value);
     #endif
 
+    // TODO: need to clean the following up if it works
+
+    if(request->hasParam("fuse_value")){
+      #if defined(ENABLE_LOGGING)
+        Serial.println("A fuse value was submitted.");
+      #endif
+      
+      inputMessage1 = request->getParam("fuse_value")->value();
+      input_message1_value = inputMessage1.toInt();
+      #if defined(ENABLE_LOGGING)
+        Serial.print("Fuse Current Submitted: ");
+        Serial.print(input_message1_value);
+      #endif
+    }
+    
     /**
      * GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
      * Here is where we set the output based on the the fuse value selected
+     * This is in the SETUP routine 
     */
     if (request->hasParam(PARAM_INPUT_1) && request->hasParam(PARAM_INPUT_2)) {
       inputMessage1 = request->getParam(PARAM_INPUT_1)->value();   //TODO: Temp info PARAM_INPUT_1 == "output"
