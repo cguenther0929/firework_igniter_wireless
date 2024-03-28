@@ -26,35 +26,57 @@
  */
 #define ENABLE_LOGGING
 
-/* Definitions for LEDs */
-#define IND_1   2
-#define IND_2   12
+/* Define Outputs */
+// TODO: need to define these as 
+// TODO: LED that hang off IO expander  
+#define LOCAL_HB_LED    2
 
+/* Define Inputs */
+#define BAT_MON         A0
+#define PBTN_1          12
+#define PBTN_2          13
 
 /**
  * Define version string constants
  * TODO: need to remove HTML_SW_STRING ??
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.1.2.a";
+String SW_VERSION_STRING = "0.0.1.a";
 String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
-String HW_VERSION_STRING = "A01";
+String HW_VERSION_STRING = "A02";
 
 /**
  * Constants (slave addresses)
- * for the MAX3725 GPIO expander
- * The "p" port represents the eight 
- * IO that are of teh open-drain type
+ * for I2C devices. For the IO expander,
+ * the "p" port represents the eight 
+ * IO that are of the open-drain type
  * the "o" port represents the eight 
- * IO that are of the push-pull type
+ * IO that are of the push-pull type.
  * 
- * The seven-bit addresses shall
+ * Only the seven-bit addresses shall
  * be defined here, as the Wire.h
  * library will automatically add the 
  * R/#W bit.
 */
-const uint8_t max3725_7b_address_p0p7  = 0b1101000;
-const uint8_t max3725_7b_address_o8o15 = 0b1011000;
+const uint16_t io_expander_7b_address_p0p7   = 0b1101000;
+const uint16_t io_expander_7b_address_o8o15  = 0b1011000;
+
+const uint16_t anlg_sw_ch1to8_address        = 0b1001100;
+const uint16_t anlg_sw_ch9to16_address       = 0b1001110;
+
+const uint16_t adc_ch1to8_address            = 0b0011101;
+const uint16_t adc_ch9to16_address           = 0b0110111;
+
+const uint16_t dac_address                   = 0b0001101;
+
+const uint16_t eeprom_address                = 0b1010000;
+
+/**
+ * The address of the display,
+ * as posted in silk on the back of 
+ * the unit, is 0x78 or 
+ * 0b_111_1000
+*/
 
 /**
  * Parameters for soft 
@@ -259,12 +281,17 @@ void setup(void) {
   /**
    * Setup pin directions
    */
-  pinMode(IND_1, OUTPUT);
-  pinMode(IND_2, OUTPUT);
+  pinMode(LOCAL_HB_LED, OUTPUT);
+  pinMode(BAT_MON, INPUT);
+  pinMode(PBTN_1, INPUT);
+  pinMode(PBTN_2, INPUT);
+  // TODO: remove unnecessary code
+  // TODO: do we need to do anything for the IO expander here?
+  // pinMode(LOCAL_HB_LED, OUTPUT);
+  // pinMode(IND_2, OUTPUT);
   
   // digitalWrite(WIFI_ERR_LED, LOW);
-  digitalWrite(IND_1, LOW);  // The indicator is active high //IO 12
-  digitalWrite(IND_2, LOW);
+  digitalWrite(LOCAL_HB_LED, LOW);  // The indicator is active high 
   
   #if defined(ENABLE_LOGGING)
     Serial.begin(9600);
@@ -273,29 +300,28 @@ void setup(void) {
   
   current_state = STATE_1;
 
-  /* BEGINNING OF DISPLAY ROUTINE*/
+  /**
+   * OLED Setup
+   */
+  // TODO: we might want to try this
+  // u8g2.setI2Caddress(0x078);
+  // u8g2.begin();
+  // u8g2.setPowerSave(0);
   u8x8.begin();
   lcdBold(true); // This call is necessary to set a font
   u8x8.clear();
 
   u8x8.setCursor(0,first_row);
   u8x8.print(F("FIREWORK IGNITER"));
-  delay(2500);
+  current_lcd_row += lcd_row_spacing;
+  u8x8.setCursor(0,current_lcd_row);
+  u8x8.print(F("STARTING ..."));
+  
+  
+  // delay(2500);
   
   u8x8.clear();
-  current_lcd_row = 0;
-  u8x8.setCursor(0,current_lcd_row);
-  current_lcd_row += lcd_row_spacing;
-  
-  u8x8.print(String("SW V: " + SW_VERSION_STRING));
-
-  u8x8.setCursor(0,current_lcd_row);
-  current_lcd_row += lcd_row_spacing;
-  u8x8.print(String("HW V: " + HW_VERSION_STRING));
-  delay(3500);
-
-  /* END OF DISPLAY ROUTINE*/
-
+ 
 
   #if defined(ENABLE_LOGGING)
     Serial.println("Module just rebooted.");
@@ -305,13 +331,23 @@ void setup(void) {
    * @brief setup wifi access point
   */
   Serial.println("Setting AP (Access Point)…");
-  // Remove the password parameter, if you want the AP (Access Point) to be open
-  WiFi.softAP(ssid, password);
   
+  /**
+   * Remove the password parameter, 
+   * if the AP is to be open 
+   * */ 
+  WiFi.softAP(ssid, password);
 
   IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(IP);
+  #if defined(ENABLE_LOGGING)
+    Serial.print("AP IP address: ");
+    Serial.println(IP);
+  #endif
+
+  /**
+   * OLED display parameters 
+   * Host IP / Versions / Etc. 
+  */
 
   u8x8.clear();
   current_lcd_row = 0; 
@@ -321,11 +357,24 @@ void setup(void) {
   u8x8.setCursor(0,current_lcd_row);
   current_lcd_row += lcd_row_spacing;
   u8x8.print(IP);
-  delay(2500);
 
-  // Print ESP8266 Local IP Address
-  Serial.print("Local IP address: ");
-  Serial.println(WiFi.localIP());
+  u8x8.setCursor(0,current_lcd_row);
+  u8x8.print(String("SW V: " + SW_VERSION_STRING));
+  current_lcd_row += lcd_row_spacing;
+
+  u8x8.setCursor(0,current_lcd_row);
+  u8x8.print(String("HW V: " + HW_VERSION_STRING));
+  current_lcd_row += lcd_row_spacing;
+
+  /**
+   * Print the IP address
+   * of the ESP8266 to the 
+   * serial terminal
+   */ 
+  #if defined(ENABLE_LOGGING)
+    Serial.print("Local IP address: ");
+    Serial.println(WiFi.localIP());
+  #endif
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -341,7 +390,6 @@ void setup(void) {
     uint8_t input_message1_value = 0;
     uint8_t input_message2_value = 0;
 
-
    #if defined(ENABLE_LOGGING)
       Serial.print("GPIO: ");
       Serial.print(input_message1_value);
@@ -349,8 +397,8 @@ void setup(void) {
       Serial.println(input_message2_value);
     #endif
 
-    // TODO: need to clean the following up if it works
-
+    // TODO: This is an old message.
+    // TODO: Need to clean the following up if it works
     if(request->hasParam("fuse_value")){
       #if defined(ENABLE_LOGGING)
         Serial.println("A fuse value was submitted.");
@@ -370,8 +418,10 @@ void setup(void) {
      * This is in the SETUP routine 
     */
     if (request->hasParam(PARAM_INPUT_1) && request->hasParam(PARAM_INPUT_2)) {
-      inputMessage1 = request->getParam(PARAM_INPUT_1)->value();   //TODO: Temp info PARAM_INPUT_1 == "output"
-      inputMessage2 = request->getParam(PARAM_INPUT_2)->value();   //TODO: temp info PARAM_INPUT_2 == "state"
+      /* PARAM_INPUT_1 = "output" */
+      inputMessage1 = request->getParam(PARAM_INPUT_1)->value(); 
+      /* PARAM_INPUT_2 = "state" */ 
+      inputMessage2 = request->getParam(PARAM_INPUT_2)->value();   
       input_message1_value = inputMessage1.toInt();
       input_message2_value = inputMessage2.toInt();
       
@@ -386,12 +436,13 @@ void setup(void) {
        * value.
       */
       input_message1_value -= 100;
+      //TODO: clean up superfluous code 
       // if(input_message1_value == 12) {
-        
-      set_gpio(input_message1_value);
-      digitalWrite(input_message1_value, input_message2_value);     //This is the function where output states are changed //TODO: we need to remove the digital write
+      set_gpio(input_message1_value); //TODO: this line is in just for testing.
+      // digitalWrite(input_message1_value, input_message2_value);     //This is the function where output states are changed //TODO: we need to remove the digital write
       
-      if(input_message2_value == 1) {     //This means the value transitioned from OFF to ON
+      /* The follow is true when a switch transitions from OFF to ON */
+      if(input_message2_value == 1) {     
         #if defined(ENABLE_LOGGING)
           Serial.println("Timeout timer started.");
         #endif
@@ -402,8 +453,8 @@ void setup(void) {
 
     }
     else {
-      inputMessage1 = "No message sent";
-      inputMessage2 = "No message sent";
+      inputMessage1 = "Invalid request";
+      inputMessage2 = "Invalid request";
     }
     
     #if defined(ENABLE_LOGGING)
@@ -418,7 +469,6 @@ void setup(void) {
 
   // Start server
   server.begin();
-
 
   //Initialize Ticker every 0.05s
   timer1_attachInterrupt(onTimerISR);
@@ -443,28 +493,32 @@ void loop(void) {
     }
     
     if(tick_1ms_counter >= timeout_1ms_ticks) {
-      Serial.println("Timeout occurred.");
-      clear_gpio();
-      //TODO: the following is in to test the timeout function
-      digitalWrite(IND_2, LOW);     //This is the function where output states are changed
+      // TODO: This entire section might need work
+      // TODO: need to remove superfluous code
+      // Serial.println("Timeout occurred.");
+      clear_gpio();  
+      // digitalWrite(IND_2, LOW);     //This is the function where output states are changed
+      #if defined(ENABLE_LOGGING)
+        Serial.println("Timeout occurred");
+      #endif
+      
       tick_1ms_counter = 0;
-      timer_running = false;  //TODO: do we want to turn this off here?
+      timer_running = false;  
     }
   }
   
   if(Timer50msFlag == true) {
     Timer50msFlag = false;
-    digitalWrite(IND_1,!(digitalRead(IND_1)));  //Toggle the health LED
   }
 
   if(Timer500msFlag == true) {
     Timer500msFlag = false;
-    // digitalWrite(IND_1,!(digitalRead(IND_1)));  //Toggle the health LED
   }
 
   if(Timer1000msFlag == true) {
     Timer1000msFlag = false;
     (seconds_counter == 300000)?(seconds_counter = 0):(seconds_counter++);
+    digitalWrite(LOCAL_HB_LED,!(digitalRead(LOCAL_HB_LED)));  //Toggle the health LED
     
   }
 }  /*END MAIN LOOP*/

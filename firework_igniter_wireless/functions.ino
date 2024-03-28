@@ -8,12 +8,12 @@
 */
 
     bool clear_gpio (void) {
-        Wire.beginTransmission(max3725_7b_address_o8o15); // transmit to device #4
+        Wire.beginTransmission(io_expander_7b_address_o8o15); // transmit to device #4
         Wire.write(0x00);        // send 0b0000 twice so the value takes
         Wire.endTransmission();
         
         
-        Wire.beginTransmission(max3725_7b_address_p0p7); // transmit to device #4
+        Wire.beginTransmission(io_expander_7b_address_p0p7); // transmit to device #4
         Wire.write(0x00);        // send 0b0000 twice so the value takes
         Wire.endTransmission();
 
@@ -21,6 +21,14 @@
 
     }
 
+    /**
+     * @brief Set an IO of the GPIO expander
+     * 
+     * @param number This is a value of 1 to 16.
+     * where 1:8 is the lower bank of the expander (p0p7)
+     * while 9:16 maps to the upper bank of the expander
+     * o8o15
+    */
     bool set_gpio (uint8_t number) {
         int address = 0;
         uint8_t shift_value=0;
@@ -42,48 +50,14 @@
             shift_value = number - 1;
         }
 
-        (number > 8)?(address = max3725_7b_address_o8o15):(address = max3725_7b_address_p0p7);
+        (number > 8)?(address = io_expander_7b_address_o8o15):(address = io_expander_7b_address_p0p7);
 
         /* The IO needs to be constrained to 0-7*/
         value = (0b00000001) << (shift_value);
 
-        Wire.beginTransmission(address); // transmit to device #4
-        Wire.write(value);        // send 0b0000 twice so the value takes
+        Wire.beginTransmission(address); 
+        Wire.write(value);        // The value has to be sent twice to guarantee a submittal
         Wire.endTransmission();
 
         return true;
     }
-
-
-    // void ICACHE_RAM_ATTR onTimerISR(){
-    //     timer1_write(tmr1_write_val);
-
-    //     Timer1msFlag = true;
-
-    //     if(ms_ticks_1 == 50) {
-    //         ms_ticks_1 = 0;
-    //         Timer50msFlag = true;
-    //         if(ms_ticks_50 == 10) {
-    //         ms_ticks_50 = 0;               //Reset centi-seconds
-    //         Timer500msFlag = true;
-            
-    //         if(ms_ticks_500 == 2) {         //See if we need to roll over
-    //             ms_ticks_500 = 0;
-    //             Timer1000msFlag = true;  
-    //         }
-    //         else {
-    //             ms_ticks_500++;              //Increase 500ms timer
-    //         }
-
-    //         }
-    //         else {
-    //             ms_ticks_50++;
-    //         }
-            
-    //     }
-    //     else {
-    //         ms_ticks_1++;
-    //     }
-  
-
-    // }
