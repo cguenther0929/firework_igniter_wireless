@@ -27,21 +27,23 @@
 #define ENABLE_LOGGING
 
 /* Define Outputs */
-// TODO: need to define these as 
-// TODO: LED that hang off IO expander  
 #define LOCAL_HB_LED    2
 
-/* Define Inputs */
+/* Define 8266 IO */
 #define BAT_MON         A0
 #define PBTN_1          12
 #define PBTN_2          13
 
+/* Define GPIO Expander IO */
+#define EXT_GRN_LED     9   //Represents the IO number
+#define EXT_RED_LED     10  
+#define EXT_YEL_LED     11
+
 /**
  * Define version string constants
- * TODO: need to remove HTML_SW_STRING ??
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.0.1.a";
+String SW_VERSION_STRING = "0.0.2.a";
 String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
 String HW_VERSION_STRING = "A02";
 
@@ -285,12 +287,7 @@ void setup(void) {
   pinMode(BAT_MON, INPUT);
   pinMode(PBTN_1, INPUT);
   pinMode(PBTN_2, INPUT);
-  // TODO: remove unnecessary code
-  // TODO: do we need to do anything for the IO expander here?
-  // pinMode(LOCAL_HB_LED, OUTPUT);
-  // pinMode(IND_2, OUTPUT);
   
-  // digitalWrite(WIFI_ERR_LED, LOW);
   digitalWrite(LOCAL_HB_LED, LOW);  // The indicator is active high 
   
   #if defined(ENABLE_LOGGING)
@@ -317,11 +314,7 @@ void setup(void) {
   u8x8.setCursor(0,current_lcd_row);
   u8x8.print(F("STARTING ..."));
   
-  
-  // delay(2500);
-  
   u8x8.clear();
- 
 
   #if defined(ENABLE_LOGGING)
     Serial.println("Module just rebooted.");
@@ -348,7 +341,6 @@ void setup(void) {
    * OLED display parameters 
    * Host IP / Versions / Etc. 
   */
-
   u8x8.clear();
   current_lcd_row = 0; 
   u8x8.setCursor(0,first_row);
@@ -436,13 +428,12 @@ void setup(void) {
        * value.
       */
       input_message1_value -= 100;
-      //TODO: clean up superfluous code 
-      // if(input_message1_value == 12) {
-      set_gpio(input_message1_value); //TODO: this line is in just for testing.
-      // digitalWrite(input_message1_value, input_message2_value);     //This is the function where output states are changed //TODO: we need to remove the digital write
       
       /* The follow is true when a switch transitions from OFF to ON */
       if(input_message2_value == 1) {     
+        
+        set_gpio(input_message1_value); //TODO: this line is in just for testing.
+        
         #if defined(ENABLE_LOGGING)
           Serial.println("Timeout timer started.");
         #endif
@@ -492,14 +483,12 @@ void loop(void) {
       tick_1ms_counter = 0;
     }
     
+    /* Condition where timeout occurred */
     if(tick_1ms_counter >= timeout_1ms_ticks) {
-      // TODO: This entire section might need work
-      // TODO: need to remove superfluous code
-      // Serial.println("Timeout occurred.");
+      
       clear_gpio();  
-      // digitalWrite(IND_2, LOW);     //This is the function where output states are changed
       #if defined(ENABLE_LOGGING)
-        Serial.println("Timeout occurred");
+        Serial.println("Time expired");
       #endif
       
       tick_1ms_counter = 0;

@@ -30,6 +30,6 @@ The folders, which should be included at `\Documents\Arduino\libraries`, may hav
 The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, the target board shall be  *Generic ESP8266 Module*.  
 
 ### VERSIONS ###
-* V0.0.1.a -- This firework igniter code was revamped for the actual igniter board (before this, it was intended for the WiFi test board).   The GPIO expander routines were revamped and tested by toggling a front LED over the LAN connection.   
+* v0.0.1.a -- This firework igniter code was revamped for the actual igniter board (before this, it was intended for the WiFi test board).   The GPIO expander routines were revamped and tested by toggling a front LED over the LAN connection.   
 
-
+* v0.0.2.a -- Still testing.  The LED will come on only if the web-switch transitions from OFF to ON. The IO number, for each of the external LEDs, has been defined.  The SW string was updated. It has been verified that the OLED is properly driven.    
