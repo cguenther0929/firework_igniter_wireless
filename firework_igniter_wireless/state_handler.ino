@@ -12,6 +12,27 @@
 #define BAT_V_KEY               "bat_v"
 #define BAT_SATUS_KEY           "bat_low"
 
+void screen_evaluation( void ) {
+    switch (current_screen) {
+        /**
+         * @brief Screen one is defined
+         * 
+         */
+        case SCREEN_1:
+            current_screen = SCREEN_2;
+
+        break;
+
+        case SCREEN_2:
+            current_screen = SCREEN_1;
+
+        break;
+
+        default:
+            current_screen = SCREEN_1;
+    }
+}
+
 void StateEvaluation( void ) {      
 
     switch (current_state) {

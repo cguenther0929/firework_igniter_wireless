@@ -32,4 +32,6 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 ### VERSIONS ###
 * v0.0.1.a -- This firework igniter code was revamped for the actual igniter board (before this, it was intended for the WiFi test board).   The GPIO expander routines were revamped and tested by toggling a front LED over the LAN connection.   
 
-* v0.0.2.a -- Still testing.  The LED will come on only if the web-switch transitions from OFF to ON. The IO number, for each of the external LEDs, has been defined.  The SW string was updated. It has been verified that the OLED is properly driven.    
+* v0.0.2.a -- Still testing.  The LED will come on only if the web-switch transitions from OFF to ON. The IO number, for each of the external LEDs, has been defined.  The SW string was updated. It has been verified that the OLED is properly driven.   
+
+* 0.1.0.a -- Multiple screens are now functioning.  The DAC output appears to be working, but the algorithms to set the output are not correct.   

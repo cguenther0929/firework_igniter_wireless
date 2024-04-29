@@ -39,12 +39,19 @@
 #define EXT_RED_LED     10  
 #define EXT_YEL_LED     11
 
+
+/**
+ * Fuse current global
+*/
+uint16_t fuse_current         = 50; //Value is in mA
+
 /**
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.0.2.a";
-String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
+String SW_VERSION_STRING = "0.1.0.a";
+// TODO: Can we remove the following line? 
+// String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
 String HW_VERSION_STRING = "A02";
 
 /**
@@ -84,8 +91,9 @@ const uint16_t eeprom_address                = 0b1010000;
  * Parameters for soft 
  * access point
 */
-const char* ssid     = "firework_igniter";
-const char* password = "123456789"; //Minimum of eight characters here
+const char* ssid          = "firework_igniter";
+const char* password      = "123456789"; //Minimum of eight characters here
+IPAddress assigned_ip_str;
 
 /**
  * Constant parameters to 
@@ -94,13 +102,15 @@ const char* password = "123456789"; //Minimum of eight characters here
 const char* PARAM_INPUT_1 = "output";
 const char* PARAM_INPUT_2 = "state";
 
+
 /**
  * @brief LCD parameters
 */
 U8X8_SH1106_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE);
-uint8_t current_lcd_row       = 0;
-const uint8_t first_row       = 0;
-const uint8_t lcd_row_spacing = 2;
+uint8_t current_oled_row        = 0;
+const uint8_t oled_column       = 1;
+const uint8_t first_row         = 0;
+const uint8_t lcd_row_spacing   = 2;
 
 /**
  * Webserver object
@@ -118,10 +128,42 @@ enum state {
   STATE_6
 };
 
+enum screen {
+  SCREEN_1,
+  SCREEN_2
+};
+
 /**
  * State tracker 
  */
 state current_state = UNKNOWN;
+
+/**
+ * Screen tracker 
+ */
+screen current_screen = SCREEN_1;
+
+/**
+ * Timer parameters
+ */
+long            tmr1_write_val  = 3030;   // Empirically derived to generate a 1ms tick timer.
+unsigned int    ms_ticks_1      =0;
+unsigned int    ms_ticks_50     =0;
+unsigned int    ms_ticks_500    =0;
+unsigned int    ms_ticks_1000   =0;
+
+bool            Timer1msFlag        = false;
+bool            Timer50msFlag       = false;
+bool            Timer500msFlag      = false;
+bool            Timer1000msFlag     = false;
+bool            timer_running       = false;
+
+long            seconds_counter     = 0;        //32bit value 4.264....e9
+long            tick_1ms_counter    = 0;        //32bit value.  At 20ms, this can count to 8.5899e7 seconds
+
+uint8_t         timeout_seconds     = 4.0;
+uint16_t        timeout_1ms_ticks   = timeout_seconds/0.001;
+
 
 
 /**
@@ -212,37 +254,6 @@ String outputState(int output){
   }
 }
 
-/**
- * Timer parameters
- */
-long            tmr1_write_val  = 3030;   // Empirically derived to generate a 1ms tick timer.
-unsigned int    ms_ticks_1      =0;
-unsigned int    ms_ticks_50     =0;
-unsigned int    ms_ticks_500    =0;
-unsigned int    ms_ticks_1000   =0;
-
-bool            Timer1msFlag        = false;
-bool            Timer50msFlag       = false;
-bool            Timer500msFlag      = false;
-bool            Timer1000msFlag     = false;
-bool            timer_running       = false;
-
-long            seconds_counter     = 0;        //32bit value 4.264....e9
-long            tick_1ms_counter    = 0;        //32bit value.  At 20ms, this can count to 8.5899e7 seconds
-
-uint8_t         timeout_seconds     = 4.0;
-uint16_t        timeout_1ms_ticks   = timeout_seconds/0.001;
-
-
-void lcdBold(bool aVal) {
-  if (aVal) {
-    u8x8.setFont(u8x8_font_victoriabold8_r); // BOLD
-  } 
-  else {
-    u8x8.setFont(u8x8_font_victoriamedium8_r); // NORMAL
-  }
-}
-
 void ICACHE_RAM_ATTR onTimerISR(){
   timer1_write(tmr1_write_val);
 
@@ -296,34 +307,25 @@ void setup(void) {
   #endif
   
   current_state = STATE_1;
-
-  /**
-   * OLED Setup
-   */
-  // TODO: we might want to try this
-  // u8g2.setI2Caddress(0x078);
-  // u8g2.begin();
-  // u8g2.setPowerSave(0);
-  u8x8.begin();
-  lcdBold(true); // This call is necessary to set a font
-  u8x8.clear();
-
-  u8x8.setCursor(0,first_row);
-  u8x8.print(F("FIREWORK IGNITER"));
-  current_lcd_row += lcd_row_spacing;
-  u8x8.setCursor(0,current_lcd_row);
-  u8x8.print(F("STARTING ..."));
-  
-  u8x8.clear();
+  current_screen = SCREEN_1;
 
   #if defined(ENABLE_LOGGING)
     Serial.println("Module just rebooted.");
   #endif
 
   /**
+   * Initialize the OLED
+  */
+  u8x8.begin();
+  lcdBold(true); // This call is necessary to set a font
+  u8x8.clear();;
+
+  /**
    * @brief setup wifi access point
   */
-  Serial.println("Setting AP (Access Point)…");
+  #if defined(ENABLE_LOGGING)
+    Serial.println("Setting AP (Access Point)…");
+  #endif
   
   /**
    * Remove the password parameter, 
@@ -332,31 +334,12 @@ void setup(void) {
   WiFi.softAP(ssid, password);
 
   IPAddress IP = WiFi.softAPIP();
+  assigned_ip_str = IP;
+  
   #if defined(ENABLE_LOGGING)
     Serial.print("AP IP address: ");
     Serial.println(IP);
   #endif
-
-  /**
-   * OLED display parameters 
-   * Host IP / Versions / Etc. 
-  */
-  u8x8.clear();
-  current_lcd_row = 0; 
-  u8x8.setCursor(0,first_row);
-  current_lcd_row += lcd_row_spacing; 
-  u8x8.print("HOSTING AT IP");
-  u8x8.setCursor(0,current_lcd_row);
-  current_lcd_row += lcd_row_spacing;
-  u8x8.print(IP);
-
-  u8x8.setCursor(0,current_lcd_row);
-  u8x8.print(String("SW V: " + SW_VERSION_STRING));
-  current_lcd_row += lcd_row_spacing;
-
-  u8x8.setCursor(0,current_lcd_row);
-  u8x8.print(String("HW V: " + HW_VERSION_STRING));
-  current_lcd_row += lcd_row_spacing;
 
   /**
    * Print the IP address
@@ -382,14 +365,19 @@ void setup(void) {
     uint8_t input_message1_value = 0;
     uint8_t input_message2_value = 0;
 
-   #if defined(ENABLE_LOGGING)
-      Serial.print("GPIO: ");
-      Serial.print(input_message1_value);
-      Serial.print(" - Set to: ");
-      Serial.println(input_message2_value);
-    #endif
+  #if defined(ENABLE_LOGGING)
+    Serial.print("GPIO: ");
+    Serial.print(input_message1_value);
+    Serial.print(" - Set to: ");
+    Serial.println(input_message2_value);
+  #endif
 
-    // TODO: This is an old message.
+  // TODO: the following didn't work so we can remove
+  // #if defined(ENABLE_LOGGING)
+  //   Serial.println("Data from the request");
+  //   Serial.print(request->param);
+  // #endif
+
     // TODO: Need to clean the following up if it works
     if(request->hasParam("fuse_value")){
       #if defined(ENABLE_LOGGING)
@@ -414,8 +402,8 @@ void setup(void) {
       inputMessage1 = request->getParam(PARAM_INPUT_1)->value(); 
       /* PARAM_INPUT_2 = "state" */ 
       inputMessage2 = request->getParam(PARAM_INPUT_2)->value();   
-      input_message1_value = inputMessage1.toInt();
-      input_message2_value = inputMessage2.toInt();
+      input_message1_value = inputMessage1.toInt(); // Output value
+      input_message2_value = inputMessage2.toInt(); // State value
       
       
       /**
@@ -429,10 +417,13 @@ void setup(void) {
       */
       input_message1_value -= 100;
       
-      /* The follow is true when a switch transitions from OFF to ON */
+      /** 
+       * The following is true when 
+       * a switch transitions from OFF to ON 
+       */
       if(input_message2_value == 1) {     
         
-        set_gpio(input_message1_value); //TODO: this line is in just for testing.
+        set_gpio(input_message1_value); 
         
         #if defined(ENABLE_LOGGING)
           Serial.println("Timeout timer started.");
@@ -440,7 +431,6 @@ void setup(void) {
         timer_running = true;
 
       }
-      // }
 
     }
     else {
@@ -465,6 +455,16 @@ void setup(void) {
   timer1_attachInterrupt(onTimerISR);
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
   timer1_write(tmr1_write_val);        //.05s 
+
+  /**
+   * TODO:
+   * THIS IS JUST FOR TESTING THE DAC
+  */
+  set_dac_value(78);
+  delay(1500);
+  set_dac_value(116);
+  delay(1500);
+  set_dac_value(155);
 
 } /* END SETUP ROUTINE*/
 
@@ -508,6 +508,11 @@ void loop(void) {
     Timer1000msFlag = false;
     (seconds_counter == 300000)?(seconds_counter = 0):(seconds_counter++);
     digitalWrite(LOCAL_HB_LED,!(digitalRead(LOCAL_HB_LED)));  //Toggle the health LED
-    
+  }
+
+  if(seconds_counter >= 3) {
+    seconds_counter = 0;    //Reset the seconds counter
+    screen_evaluation();
+    display_screen();
   }
 }  /*END MAIN LOOP*/
