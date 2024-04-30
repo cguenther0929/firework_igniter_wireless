@@ -46,7 +46,7 @@ bool display_screen ( void ){
 
         case SCREEN_2:
             // TODO: we shoule be able to remove the following 
-            // String str_fuse_current = String(fuse_current);
+            // String str_fuse_current = String(fuse_current_ma);
             
             u8x8.clear();
             current_oled_row = 0; 
@@ -54,7 +54,7 @@ bool display_screen ( void ){
             u8x8.print("FUSE (mA)");
             current_oled_row += lcd_row_spacing; 
             u8x8.setCursor(oled_column,current_oled_row);
-            u8x8.print(String(fuse_current));
+            u8x8.print(String(fuse_current_ma));
             current_oled_row += lcd_row_spacing; 
 
 
@@ -87,7 +87,25 @@ void lcdBold(bool aVal) {
   }
 }
 
-void set_dac_value ( uint8_t val) {
+void set_fuse_current_ma (uint16_t maval) {
+    uint16_t bit_value;
+    float mv_voltage_target=0.0;
+
+    mv_voltage_target = maval * 0.5;   // Simply Ohms law V = I*R
+
+    bit_value = (uint8_t)(mv_voltage_target/MV_PER_BIT);
+    
+    // TODO: for debugging only
+    // Serial.print("The calculated bit value: "); Serial.println(bit_value);
+
+    // bit_value = ((maval/1000)*0.5*255)/3.3;
+
+    set_dac_value(bit_value);
+
+
+}
+
+void set_dac_value ( uint8_t binval) {
     
     /**
      * 8b DAC which uses the supply 
@@ -111,24 +129,22 @@ void set_dac_value ( uint8_t val) {
      * 
      * 
      * 
-     * 
-     * ┌─┬─┬───┬───┬──┬──┬──┬──┬
-     * │0│0│PD1│PD0│D7│D6│D5│D4│
-     * └─┴─┴───┴───┴──┴──┴──┴──┴
-     *  ┬──┬──┬──┬──┬─┬─┬─┬─┐
-     *  │D3│D2│D1│D0│0│0│0│0│
-     *  ┴──┴──┴──┴──┴─┴─┴─┴─┘                                  
+     * So, if operating in normal mode
+     * the register for the DAC would look like
+     * this.
+     * ┌─┬─┬─┬─┬──┬──┬──┬──┬──┬──┬──┬──┬─┬─┬─┬─┐
+     * │0│0│0│0│D7│D6│D5│D4│D3│D2│D1│D0│0│0│0│0│
+     * └─┴─┴─┴─┴──┴──┴──┴──┴──┴──┴──┴──┴─┴─┴─┴─┘
      *                          
     */
 
-    uint8_t high_nibble = 0x00 | (val & 0xF0);
-    
-    // TODO: I think this is working
-    uint8_t low_nibble = 0x00 | ((val & 0x0F) << 4);
+    uint8_t high_nibble = 0x00 | ((binval & 0xF0) >> 4);
+    uint8_t low_nibble = 0x00 | ((binval & 0x0F) << 4);
 
-    Serial.print("Value passed in: "); Serial.println(val);
-    Serial.print("Upper nibble: "); Serial.println(high_nibble);
-    Serial.print("Lower nibble: "); Serial.println(low_nibble);
+    // TODO: should be able to remove the following
+    // Serial.print("Value passed in: "); Serial.println(binval);
+    // Serial.print("Upper nibble: "); Serial.println(high_nibble);
+    // Serial.print("Lower nibble: "); Serial.println(low_nibble);
     
     Wire.beginTransmission(dac_address); 
     Wire.write(high_nibble);        

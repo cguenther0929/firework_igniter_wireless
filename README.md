@@ -35,3 +35,5 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 * v0.0.2.a -- Still testing.  The LED will come on only if the web-switch transitions from OFF to ON. The IO number, for each of the external LEDs, has been defined.  The SW string was updated. It has been verified that the OLED is properly driven.   
 
 * 0.1.0.a -- Multiple screens are now functioning.  The DAC output appears to be working, but the algorithms to set the output are not correct.   
+
+* 0.1.1.a -- The function to set the fuse current (in mA) is functioning.  In general, routines involving the DAC are functioning well.  

@@ -39,17 +39,22 @@
 #define EXT_RED_LED     10  
 #define EXT_YEL_LED     11
 
+/**
+ * Volts per bit for
+ * the eight bit DAC.
+*/
+const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 
 /**
  * Fuse current global
 */
-uint16_t fuse_current         = 50; //Value is in mA
+uint16_t fuse_current_ma      = 50; //Value is in mA
 
 /**
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.1.0.a";
+String SW_VERSION_STRING = "0.1.1.a";
 // TODO: Can we remove the following line? 
 // String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
 String HW_VERSION_STRING = "A02";
@@ -460,11 +465,13 @@ void setup(void) {
    * TODO:
    * THIS IS JUST FOR TESTING THE DAC
   */
-  set_dac_value(78);
+    set_fuse_current_ma(800);
   delay(1500);
-  set_dac_value(116);
-  delay(1500);
-  set_dac_value(155);
+  // set_dac_value(78);
+  // delay(1500);
+  // set_dac_value(116);
+  // delay(1500);
+  // set_dac_value(155);
 
 } /* END SETUP ROUTINE*/
 
