@@ -37,3 +37,5 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 * 0.1.0.a -- Multiple screens are now functioning.  The DAC output appears to be working, but the algorithms to set the output are not correct.   
 
 * 0.1.1.a -- The function to set the fuse current (in mA) is functioning.  In general, routines involving the DAC are functioning well.  
+
+* 0.1.2.a -- Functions to set and clear GPIO are functioning.  Only the bit of interest is set or cleared in functions set_ioxpander_gpio and clear_ioxpander_gpio.  

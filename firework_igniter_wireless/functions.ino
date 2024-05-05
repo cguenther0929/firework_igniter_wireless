@@ -1,6 +1,13 @@
 // void display_init( void ){
 
 
+void printBin(byte aByte) {
+  for (int8_t aBit = 7; aBit >= 0; aBit--){
+    Serial.print(bitRead(aByte, aBit) ? '1' : '0');
+  }
+  Serial.print('\n');
+}
+
 
 
 // }
@@ -175,43 +182,149 @@ void set_dac_value ( uint8_t binval) {
         return true;
     }
 
+/**
+ * @brief Set an IO of the GPIO expander
+ * 
+ * @param number This is a value of 1 to 16.
+ * where 1:8 is the lower bank of the expander (p0p7)
+ * while 9:16 maps to the upper bank of the expander
+ * o8o15
+*/
+bool set_ioxpander_gpio (uint8_t number) {
+    int address                 = 0x00;
+    uint8_t gpio_read_value     = 0x00;
+    uint8_t shift_value         = 0x00;
+    uint8_t value_mask          = 0x00;
+
     /**
-     * @brief Set an IO of the GPIO expander
-     * 
-     * @param number This is a value of 1 to 16.
-     * where 1:8 is the lower bank of the expander (p0p7)
-     * while 9:16 maps to the upper bank of the expander
-     * o8o15
+     * The number can't be negative 
+     * Make sure the value isn't larger 
+     * than 16
     */
-    bool set_gpio (uint8_t number) {
-        int address = 0;
-        uint8_t shift_value=0;
-        uint8_t value = 0x00;
-
-        /**
-         *  The number can't be negative 
-         * Make sure the value isn't larger 
-         * than 16
-        */
-        if(number > 16) {
-            number = 0;
-        }
-
-        if(number > 8) {
-            shift_value = number - 9;
-        }
-        else {
-            shift_value = number - 1;
-        }
-
-        (number > 8)?(address = io_expander_7b_address_o8o15):(address = io_expander_7b_address_p0p7);
-
-        /* The IO needs to be constrained to 0-7*/
-        value = (0b00000001) << (shift_value);
-
-        Wire.beginTransmission(address); 
-        Wire.write(value);        // The value has to be sent twice to guarantee a submittal
-        Wire.endTransmission();
-
-        return true;
+    if(number > 16) {
+        number = 0;
     }
+
+    if(number > 8) {
+        shift_value = number - 9;
+    }
+    else {
+        shift_value = number - 1;
+    }
+
+    (number > 8)?(address = io_expander_7b_address_o8o15):(address = io_expander_7b_address_p0p7);
+
+    /* Determine the value_mask */
+    value_mask = (0b00000001) << (shift_value);
+    #if defined(ENABLE_LOGGING)
+        Serial.print("Mask --> ");
+        printBin(value_mask);
+    #endif
+
+    /**
+     * Do not want to overwrite 
+     * outputs that are already 
+     * set, so read from the IO 
+     * expander
+    */
+    Wire.beginTransmission(address); 
+    Wire.requestFrom(address, 1);    // Request 1 byte from the address
+
+    gpio_read_value = Wire.read();  
+
+    #if defined(ENABLE_LOGGING)
+        Serial.print("GPIO Read --> ");
+        printBin(gpio_read_value);
+    #endif
+
+    /**
+     * Modify the value read from the
+     * GPIO expander so the only the value
+     * of interested is modified
+    */
+    gpio_read_value = (value_mask) | gpio_read_value;
+
+    /**
+     * Write the modified IO value back 
+     * to the IO expander 
+    */
+    Wire.write(gpio_read_value);        // The value has to be sent twice to guarantee a submittal
+    Wire.endTransmission();
+
+    return true;
+}
+
+/**
+ * @brief Clear an IO of the GPIO expander
+ * 
+ * @param number This is a value of 1 to 16.
+ * where 1:8 is the lower bank of the expander (p0p7)
+ * while 9:16 maps to the upper bank of the expander
+ * o8o15
+*/
+bool clear_ioxpander_gpio (uint8_t number) {
+    int address                 = 0;
+    uint8_t gpio_read_value     = 0x00;
+    uint8_t shift_value         = 0;
+    uint8_t value_mask          = 0x00;
+
+    /**
+     * The number can't be negative 
+     * Make sure the value isn't larger 
+     * than 16
+    */
+    if(number > 16) {
+        number = 0;
+    }
+
+    if(number > 8) {
+        shift_value = number - 9;
+    }
+    else {
+        shift_value = number - 1;
+    }
+
+    (number > 8)?(address = io_expander_7b_address_o8o15):(address = io_expander_7b_address_p0p7);
+
+    /* The IO needs to be constrained to 0-7*/
+    value_mask = (0b00000001) << (shift_value);
+    
+    /**
+     * Generate the value_mask
+     * where the bit we want to
+     * clear shall be a zero while 
+     * all others shall be a one
+    */
+    value_mask ^= (0xFF);
+    #if defined(ENABLE_LOGGING)
+        Serial.print("Mask: ");
+        printBin(value_mask);
+    #endif
+
+    Wire.beginTransmission(address); 
+    
+    Wire.requestFrom(address, 1);    // Request 1 byte from the address
+
+    gpio_read_value = Wire.read();    
+    
+    #if defined(ENABLE_LOGGING)
+        Serial.print("GPIO Read: ");
+        printBin(gpio_read_value);
+    #endif
+    
+    /**
+     * Now clear just the io of
+     * interest
+    */
+    gpio_read_value = (value_mask) & gpio_read_value;
+
+
+    /**
+     * Write the modified IO value back 
+     * to the IO expander 
+    */
+    Wire.write(gpio_read_value);        // The value has to be sent twice to guarantee a submittal
+    Wire.endTransmission();
+
+    return true;
+}

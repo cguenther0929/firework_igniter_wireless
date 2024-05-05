@@ -1,4 +1,10 @@
 /**
+ * TODO: Need to flash a heartbeat LED
+ * TODO: Need a special test selector switch (amber LED?)
+ * TODO: Need to route through analog switches
+ * TODO: Nice to have ... Push the fuse current from the web interface
+ * 
+ * 
  * TODO: A lot of button progress was made, but it still doesn't 
  * TODO: appear to submit the value.  In the <form /> definition, 
  * TODO: it seems to crash if we make the method a post instead of get.
@@ -24,7 +30,7 @@
  * if you wish to have logging 
  * data printed to the screen
  */
-#define ENABLE_LOGGING
+// #define ENABLE_LOGGING
 
 /* Define Outputs */
 #define LOCAL_HB_LED    2
@@ -54,9 +60,7 @@ uint16_t fuse_current_ma      = 50; //Value is in mA
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.1.1.a";
-// TODO: Can we remove the following line? 
-// String HTML_SW_STRING = "<h2>Firework Igniter" + SW_VERSION_STRING + "</h2>";
+String SW_VERSION_STRING = "0.1.2.a";
 String HW_VERSION_STRING = "A02";
 
 /**
@@ -72,18 +76,19 @@ String HW_VERSION_STRING = "A02";
  * library will automatically add the 
  * R/#W bit.
 */
-const uint16_t io_expander_7b_address_p0p7   = 0b1101000;
-const uint16_t io_expander_7b_address_o8o15  = 0b1011000;
+// TODO: change these other addresses to uint8
+const uint16_t io_expander_7b_address_p0p7    = 0b1101000;
+const uint16_t io_expander_7b_address_o8o15   = 0b1011000;
 
-const uint16_t anlg_sw_ch1to8_address        = 0b1001100;
-const uint16_t anlg_sw_ch9to16_address       = 0b1001110;
+const uint16_t anlg_sw_ch1to8_address         = 0b1001100;
+const uint16_t anlg_sw_ch9to16_address        = 0b1001110;
 
-const uint16_t adc_ch1to8_address            = 0b0011101;
-const uint16_t adc_ch9to16_address           = 0b0110111;
+const uint16_t adc_ch1to8_address             = 0b0011101;
+const uint16_t adc_ch9to16_address            = 0b0110111;
 
-const uint16_t dac_address                   = 0b0001101;
+const uint16_t dac_address                    = 0b0001101;
 
-const uint16_t eeprom_address                = 0b1010000;
+const uint16_t eeprom_address                 = 0b1010000;
 
 /**
  * The address of the display,
@@ -245,6 +250,7 @@ String processor(const String& var){
     buttons += "<h4>FUSE 14</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"114\" " + outputState(114) + "><span class=\"slider\"></span></label>";
     buttons += "<h4>FUSE 15</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"115\" " + outputState(115) + "><span class=\"slider\"></span></label>";
     buttons += "<h4>FUSE 16</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"116\" " + outputState(116) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4>TEST SW</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"117\" " + outputState(117) + "><span class=\"slider\"></span></label>";
     return buttons;
   }
   return String();
@@ -428,7 +434,16 @@ void setup(void) {
        */
       if(input_message2_value == 1) {     
         
-        set_gpio(input_message1_value); 
+        /**
+         * This is the case where the user
+         * toggled the test fuse 
+        */
+        if(input_message1_value == 17) {
+          set_ioxpander_gpio(10); 
+        }
+        
+        // TODO: This line can be removed
+        // set_ioxpander_gpio(input_message1_value); 
         
         #if defined(ENABLE_LOGGING)
           Serial.println("Timeout timer started.");
@@ -514,7 +529,22 @@ void loop(void) {
   if(Timer1000msFlag == true) {
     Timer1000msFlag = false;
     (seconds_counter == 300000)?(seconds_counter = 0):(seconds_counter++);
-    digitalWrite(LOCAL_HB_LED,!(digitalRead(LOCAL_HB_LED)));  //Toggle the health LED
+    
+    if(digitalRead(LOCAL_HB_LED)) {
+      /**
+       * Turn heartbeat LEDs OFF
+      */
+      digitalWrite(LOCAL_HB_LED,0);  
+      clear_ioxpander_gpio(9); 
+    }
+    else {
+      /**
+       * Turn heartbeat LEDs ON
+      */
+      digitalWrite(LOCAL_HB_LED,1);  
+      set_ioxpander_gpio(9); 
+    }
+    
   }
 
   if(seconds_counter >= 3) {
