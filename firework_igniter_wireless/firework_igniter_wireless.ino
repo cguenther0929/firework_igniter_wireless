@@ -1,6 +1,4 @@
 /**
- * TODO: Need to flash a heartbeat LED
- * TODO: Need a special test selector switch (amber LED?)
  * TODO: Need to route through analog switches
  * TODO: Nice to have ... Push the fuse current from the web interface
  * 
@@ -8,7 +6,6 @@
  * TODO: A lot of button progress was made, but it still doesn't 
  * TODO: appear to submit the value.  In the <form /> definition, 
  * TODO: it seems to crash if we make the method a post instead of get.
- * 
  * This might be a good tutorial: https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_form_method
  * 
  * 
@@ -54,13 +51,13 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 /**
  * Fuse current global
 */
-uint16_t fuse_current_ma      = 50; //Value is in mA
+uint16_t fuse_current_ma      = 800; //Value is in mA
 
 /**
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.1.2.a";
+String SW_VERSION_STRING = "0.2.0.a";
 String HW_VERSION_STRING = "A02";
 
 /**
@@ -75,8 +72,11 @@ String HW_VERSION_STRING = "A02";
  * be defined here, as the Wire.h
  * library will automatically add the 
  * R/#W bit.
+ * 
+ * I2C (Wire) functions want 
+ * 16bit addresses, thus the width 
+ * of these addresses is set to 16bits
 */
-// TODO: change these other addresses to uint8
 const uint16_t io_expander_7b_address_p0p7    = 0b1101000;
 const uint16_t io_expander_7b_address_o8o15   = 0b1011000;
 
@@ -324,13 +324,14 @@ void setup(void) {
     Serial.println("Module just rebooted.");
   #endif
 
+
   /**
    * Initialize the OLED
   */
   u8x8.begin();
   lcdBold(true); // This call is necessary to set a font
   u8x8.clear();;
-
+  
   /**
    * @brief setup wifi access point
   */
@@ -383,12 +384,6 @@ void setup(void) {
     Serial.println(input_message2_value);
   #endif
 
-  // TODO: the following didn't work so we can remove
-  // #if defined(ENABLE_LOGGING)
-  //   Serial.println("Data from the request");
-  //   Serial.print(request->param);
-  // #endif
-
     // TODO: Need to clean the following up if it works
     if(request->hasParam("fuse_value")){
       #if defined(ENABLE_LOGGING)
@@ -434,14 +429,26 @@ void setup(void) {
        */
       if(input_message2_value == 1) {     
         
-        /**
-         * This is the case where the user
-         * toggled the test fuse 
-        */
-        if(input_message1_value == 17) {
-          set_ioxpander_gpio(10); 
-        }
-        
+      /**
+       * This is the case where the user
+       * toggled the test fuse 
+      */
+      if(input_message1_value == 17) {
+        set_ioxpander_gpio(10); 
+      }
+
+      /**
+       * Enable the appropriate output
+       * (1-16) and turn on the applicable 
+       * analog switch
+      */
+      else {
+        set_anlgsw(input_message1_value); 
+        // set_all_anlgsw();
+      }
+
+
+
         // TODO: This line can be removed
         // set_ioxpander_gpio(input_message1_value); 
         
@@ -476,17 +483,12 @@ void setup(void) {
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
   timer1_write(tmr1_write_val);        //.05s 
 
+  
   /**
-   * TODO:
-   * THIS IS JUST FOR TESTING THE DAC
+   * Define default (low) fuse current 
   */
-    set_fuse_current_ma(800);
-  delay(1500);
-  // set_dac_value(78);
-  // delay(1500);
-  // set_dac_value(116);
-  // delay(1500);
-  // set_dac_value(155);
+  // set_dac_value(78); //TODO: can remove this debug line
+  set_fuse_current_ma(fuse_current_ma);
 
 } /* END SETUP ROUTINE*/
 
@@ -508,7 +510,7 @@ void loop(void) {
     /* Condition where timeout occurred */
     if(tick_1ms_counter >= timeout_1ms_ticks) {
       
-      clear_gpio();  
+      disable_all_anlgsw();  
       #if defined(ENABLE_LOGGING)
         Serial.println("Time expired");
       #endif
