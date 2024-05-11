@@ -50,6 +50,8 @@ bool display_screen ( void ){
             u8x8.setCursor(oled_column,current_oled_row);
             u8x8.print(String(fuse_current_ma));
             current_oled_row += lcd_row_spacing; 
+            u8x8.setCursor(oled_column,current_oled_row);
+            u8x8.print(String("--CJG--"));
 
 
         break;
@@ -151,6 +153,59 @@ void set_dac_value ( uint8_t binval) {
     Wire.endTransmission();
 
 }
+
+
+
+// bool check_fuses ( void ) {
+//     uint16_t fuse_current_ma    = 0x0000;
+//     uint16_t fuse_health        = 0x0000;
+//     uint8_t i                   = 0x00;
+
+//     /**
+//     * Set the fuse level
+//     * so we can check without 
+//     * setting off fireworks
+//     */
+//     set_fuse_current_ma (150);
+
+//     /**
+//      * One-by-one enable 
+//      * the fuse and check the 
+//      * feedback to see if the fuse is valid
+//     */
+//     for (i=0;i<16;i++) {
+//         set_anlgsw(i)
+//     }
+
+
+//     /**
+//      * Kill all the analog switches 
+//      * before exiting
+//     */
+//     disable_all_anlgsw();
+    
+//     /**
+//      * Put the fuse current back
+//      * before exiting
+//     */
+//     set_fuse_current_ma(fuse_current_ma);
+
+
+    
+//     return true;
+// }
+
+
+
+
+// uint16_t get_adc_reading (uint8_t number) {
+
+
+// }
+
+
+
+
 
 
 /**
@@ -316,23 +371,6 @@ bool clear_ioexp_io (void) {
     Wire.endTransmission();
 
     return true;
-}
-
-// TODO: this function is just for testing
-bool set_all_anlgsw(void) {
-
-    Wire.beginTransmission(anlg_sw_ch1to8_address); 
-    Wire.write(0x00);        
-    Wire.write(0xFF);        
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(anlg_sw_ch9to16_address); 
-    Wire.write(0x00);        
-    Wire.write(0xFF);        
-    Wire.endTransmission();
-
-    return true;
-
 }
 
 bool set_anlgsw (uint8_t number) {

@@ -1,5 +1,4 @@
 /**
- * TODO: Need to route through analog switches
  * TODO: Nice to have ... Push the fuse current from the web interface
  * 
  * 
@@ -213,8 +212,8 @@ const char index_html[] PROGMEM = R"rawliteral(
 
 <FORM action="/" method="get">
 <br>
-Fuse Current: <INPUT type="text" name="fuse_value" size="5" value="50"<br>
-<input type="submit" value="SUBMIT">
+Fuse Current (mA): <INPUT type="text" name="fuse_value" size="5" value="50"<br>
+<input type="submit" value="Update">
 </FORM>
 
 
