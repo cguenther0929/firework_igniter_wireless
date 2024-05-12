@@ -50,13 +50,15 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 /**
  * Fuse current global
 */
-uint16_t fuse_current_ma      = 800; //Value is in mA
+uint16_t fuse_current_ma      = 50; //Value is in mA
+#define FUSE_CURRENT_MA_MIN     150
+#define FUSE_CURRENT_MA_MAX     800
 
 /**
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.2.0.a";
+String SW_VERSION_STRING = "0.2.1.a";
 String HW_VERSION_STRING = "A02";
 
 /**
@@ -88,6 +90,13 @@ const uint16_t adc_ch9to16_address            = 0b0110111;
 const uint16_t dac_address                    = 0b0001101;
 
 const uint16_t eeprom_address                 = 0b1010000;
+
+
+/**
+ * IC register globals
+*/
+const uint8_t acd_busy_register_address       = 0x0C;
+
 
 /**
  * The address of the display,
@@ -249,7 +258,7 @@ String processor(const String& var){
     buttons += "<h4>FUSE 14</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"114\" " + outputState(114) + "><span class=\"slider\"></span></label>";
     buttons += "<h4>FUSE 15</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"115\" " + outputState(115) + "><span class=\"slider\"></span></label>";
     buttons += "<h4>FUSE 16</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"116\" " + outputState(116) + "><span class=\"slider\"></span></label>";
-    buttons += "<h4>TEST SW</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"117\" " + outputState(117) + "><span class=\"slider\"></span></label>";
+    buttons += "<h4> ARM </h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"117\" " + outputState(117) + "><span class=\"slider\"></span></label>";
     return buttons;
   }
   return String();
@@ -422,6 +431,20 @@ void setup(void) {
       */
       input_message1_value -= 100;
       
+      /**
+       * The following is true when a 
+       * switch switches from ON to OFF
+      */
+      if(input_message2_value == 0) {     
+        if(input_message1_value == 17) {
+          if(fuse_current_ma != FUSE_CURRENT_MA_MIN) {
+            fuse_current_ma = FUSE_CURRENT_MA_MIN;
+            set_fuse_current_ma(fuse_current_ma);
+          }
+        }
+      
+      }
+      
       /** 
        * The following is true when 
        * a switch transitions from OFF to ON 
@@ -430,10 +453,13 @@ void setup(void) {
         
       /**
        * This is the case where the user
-       * toggled the test fuse 
+       * wishes to arm the ignition system  
       */
       if(input_message1_value == 17) {
-        set_ioxpander_gpio(10); 
+        if(fuse_current_ma != FUSE_CURRENT_MA_MAX) {
+          fuse_current_ma = FUSE_CURRENT_MA_MAX;
+          set_fuse_current_ma(fuse_current_ma);
+        }
       }
 
       /**
@@ -446,11 +472,6 @@ void setup(void) {
         // set_all_anlgsw();
       }
 
-
-
-        // TODO: This line can be removed
-        // set_ioxpander_gpio(input_message1_value); 
-        
         #if defined(ENABLE_LOGGING)
           Serial.println("Timeout timer started.");
         #endif
@@ -486,8 +507,7 @@ void setup(void) {
   /**
    * Define default (low) fuse current 
   */
-  // set_dac_value(78); //TODO: can remove this debug line
-  set_fuse_current_ma(fuse_current_ma);
+  set_fuse_current_ma(FUSE_CURRENT_MA_MIN);
 
 } /* END SETUP ROUTINE*/
 
@@ -498,7 +518,14 @@ void loop(void) {
 
   if(Timer1msFlag == true) {
     Timer1msFlag = false;
-    // StateEvaluation();
+    
+    if(fuse_current_ma >= 800) {
+      set_ioxpander_gpio(11);
+    }
+    else {
+      clear_ioxpander_gpio(11);;
+    }
+
     if(timer_running){
       tick_1ms_counter++;
     }

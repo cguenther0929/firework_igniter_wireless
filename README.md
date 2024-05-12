@@ -40,4 +40,6 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 
 * 0.1.2.a -- Functions to set and clear GPIO are functioning.  Only the bit of interest is set or cleared in functions set_ioxpander_gpio and clear_ioxpander_gpio. 
 
-* 0.2.0.a -- Enabling an output by way of enabling the appropriate analog switch is working.  LEDs 1-16 were illuminated on the tester (DAC was already working).  This version has a hard-coded analog current of 800mA. Aside from a hard-coded fuse current, this version could by utilized to run the show.   
+* 0.2.0.a -- Enabling an output by way of enabling the appropriate analog switch is working.  LEDs 1-16 were illuminated on the tester (DAC was already working).  This version has a hard-coded analog current of 800mA. Aside from a hard-coded fuse current, this version could by utilized to run the show.  
+
+* 0.2.1.a -- The "ARM" switch was implemented that allows the user to quickly toggle between MIN and MAX fuse current.  When the system is "armed" the RED LED at, the front of the enclosure, will illuminate. 

@@ -154,6 +154,65 @@ void set_dac_value ( uint8_t binval) {
 
 }
 
+/****
+ * @brief To determine if the ADC (CH 1 through 8) is OKAY
+ * 
+ * @return true of false 
+*/
+bool adc128d_ch1to8_okay ( void ) {
+    uint8_t sensor_value    = 0x00;
+
+
+    Wire.beginTransmission(adc_ch1to8_address); 
+    Wire.write(acd_busy_register_address);        
+    Wire.endTransmission();
+
+    Wire.requestFrom(adc_ch1to8_address, 1);    // Request 1 byte from the address   
+    sensor_value = Wire.read();
+    Wire.endTransmission();
+
+    if(sensor_value & 0x01) {
+        return false;
+    }
+
+    return true;
+
+
+}
+
+/****
+ * @brief To determine if the ADC (CH 9 through 16) is OKAY
+ * 
+ * @return true of false 
+*/
+bool adc128d_ch9to16_okay ( void ) {
+    uint8_t sensor_value    = 0x00;
+
+
+    Wire.beginTransmission(adc_ch9to16_address); 
+    Wire.write(acd_busy_register_address);        
+    Wire.endTransmission();
+
+
+    Wire.requestFrom(adc_ch9to16_address, 1);    // Request 1 byte from the address   
+    sensor_value = Wire.read();
+    Wire.endTransmission();
+
+    if(sensor_value & 0x01) {
+        return false;
+    }
+
+    return true;
+
+
+}
+
+
+
+
+
+
+
 
 
 // bool check_fuses ( void ) {
@@ -253,7 +312,8 @@ bool set_ioxpander_gpio (uint8_t number) {
      * set, so read from the IO 
      * expander
     */
-    Wire.beginTransmission(address); 
+    Wire.beginTransmission(address); //TODO: do we need a begin that is immediately proceeded by a requestFrom?
+    // TODO: I don't think we need beginTransmission
     Wire.requestFrom(address, 1);    // Request 1 byte from the address
 
     gpio_read_value = Wire.read();  
