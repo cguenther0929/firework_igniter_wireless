@@ -50,15 +50,15 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 /**
  * Fuse current global
 */
-uint16_t fuse_current_ma      = 50; //Value is in mA
 #define FUSE_CURRENT_MA_MIN     150
 #define FUSE_CURRENT_MA_MAX     800
+uint16_t fuse_current_ma      = FUSE_CURRENT_MA_MIN; //Value is in mA
 
 /**
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.2.1.a";
+String SW_VERSION_STRING = "0.2.1.b";
 String HW_VERSION_STRING = "A02";
 
 /**
