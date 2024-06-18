@@ -164,14 +164,14 @@ bool adc128d_ch1to8_okay ( void ) {
 
 
     Wire.beginTransmission(adc_ch1to8_address); 
-    Wire.write(acd_busy_register_address);        
+    Wire.write(adc_busy_register_address);        
     Wire.endTransmission();
 
     Wire.requestFrom(adc_ch1to8_address, 1);    // Request 1 byte from the address   
     sensor_value = Wire.read();
     Wire.endTransmission();
 
-    if(sensor_value & 0x01) {
+    if(sensor_value & 0x01 || (sensor_value >> 1 & 0x01)) {
         return false;
     }
 
@@ -184,13 +184,14 @@ bool adc128d_ch1to8_okay ( void ) {
  * @brief To determine if the ADC (CH 9 through 16) is OKAY
  * 
  * @return true of false 
+ * 
 */
 bool adc128d_ch9to16_okay ( void ) {
     uint8_t sensor_value    = 0x00;
 
 
     Wire.beginTransmission(adc_ch9to16_address); 
-    Wire.write(acd_busy_register_address);        
+    Wire.write(adc_busy_register_address);        
     Wire.endTransmission();
 
 
@@ -198,7 +199,7 @@ bool adc128d_ch9to16_okay ( void ) {
     sensor_value = Wire.read();
     Wire.endTransmission();
 
-    if(sensor_value & 0x01) {
+    if((sensor_value & 0x01) || (sensor_value >> 1 & 0x01)) {
         return false;
     }
 
@@ -212,20 +213,52 @@ bool adc128d_ch9to16_okay ( void ) {
 
 
 
-
+/****
+ * @brief Check to verify the fuses are healthy
+ * 
+ * @return TODO: TBD 
+ * 
+ * With 100mA of current flowing through
+ * the 0.5OHM sense resistor, 50mV will 
+ * be developed across the resistor.  
+ * The ADC is 12-bit with an 
+ * internal reference of 2.56V. This relationship 
+ * will yield 625uV per bit.  This will result 
+ * in a bit value of ~80 when the input voltage 
+ * is 50mV.
+ * 
+*/
 
 
 // bool check_fuses ( void ) {
-//     uint16_t fuse_current_ma    = 0x0000;
-//     uint16_t fuse_health        = 0x0000;
+//     uint16_t restore_fuse_current_ma    = 0x0000;
 //     uint8_t i                   = 0x00;
+// uint16_t adc_raw_value = 0x0000
+    
+    
+    
+    /**
+     * Store the fuse current
+     * value so it can be put back 
+     * before leaving the function 
+     */
+    // restore_fuse_current_ma      = fuse_current_ma; //Value is in mA
 
-//     /**
-//     * Set the fuse level
-//     * so we can check without 
-//     * setting off fireworks
-//     */
-//     set_fuse_current_ma (150);
+
+
+
+
+    /**
+    * Set the fuse current 
+    * to a low value so the 
+    * fuses can be checked without 
+    * setting off fireworks.
+    */
+//     set_fuse_current_ma(100);
+
+
+
+
 
 //     /**
 //      * One-by-one enable 
@@ -233,8 +266,17 @@ bool adc128d_ch9to16_okay ( void ) {
 //      * feedback to see if the fuse is valid
 //     */
 //     for (i=0;i<16;i++) {
-//         set_anlgsw(i)
+//          set_anlgsw(i);
+            /* Now read the associated value from the ADC */
+            get_adc_value(i)
+            if (adc_raw_value > FUSE_CHK_DIG_THRESHOLDD){
+                //TODO: fuse is OK
+            }
 //     }
+
+
+
+
 
 
 //     /**
@@ -263,8 +305,93 @@ bool adc128d_ch9to16_okay ( void ) {
 // }
 
 
+/**
+ * @brief Get ADC value from ADC for specified channel
+ * 
+ * @param number this is a value in
+ * the range of 1-16.
+ * 
+ * If the Register Address value is unknown, 
+ * write to the ADC128D818 with the Serial Bus Address byte,
+ * followed by the desired Register Address byte. 
+ * Then restart the Serial Communication with a Read
+ * consisting of the Serial Bus Address byte, followed 
+ * by the Data byte read from the ADC128D818.
+ * 
+*/
+uint16_t get_adc_value (number) {
+    int address                     = 0x00;
+    uint8_t internal_reg_address    = 0x00;
+    uint8_t actual_channel          = 0x00;
+    uint8_t i                       = 0x00;
+    uint16_t adc_raw_value          = 0x0000;
+
+    #ifined(ENABLE_LOGGING)
+        Serial.print("Getting ADC value.");
+    #endif
+
+    /**
+     * The number can't be negative 
+     * Make sure the value isn't larger 
+     * than 16
+    */
+    if(number > 16) {
+        number = 0;
+    }
+
+    if(number > 8) {
+        actual_channel = number - 9;  //Zero-based
+    }
+    else {
+        actual_channel = number - 1;  //Zero-based
+    }
+
+    (number > 8)?(address = iadc_ch9to16_address):(address = adc_ch1to8_address);
+    
+    /**
+     * Set the address
+     * of the internal register.  
+     * According to the datasheet
+     * for the IC, the data 
+     * registers start at 0x20
+     */
+    internal_reg_address  = adc_channel_read_start_addr + actual_channel;
+    
+    /** 
+     * Set the address of the internal register
+     */
+    Wire.beginTransmission(address);
+    Wire.write(internal_reg_address);        // The value has to be sent twice to guarantee a submittal
+    Wire.endTransmission();
 
 
+    /**
+     * Read the data 
+     * (12-bit) right justified
+     */
+    // Wire.beginTransmission(address); //TODO: do we need a begin that is immediately proceeded by a requestFrom?
+    // TODO: I don't think we need beginTransmission
+    Wire.requestFrom(address, 2);    // Request 1 byte from the address
+
+    while(wire.available()) {
+        if(i == 0) {
+            adc_raw_value = (Wire.read() & 0x00FF);
+        }
+        else {
+            adc_raw_value = (((adc_raw_value << 8) | Wire.read()) & 0x1FFF);          
+        }
+        
+        i++;
+    }
+    
+    Wire.endTransmission();
+    
+    #ifined(ENABLE_LOGGING)
+        Serial.print("Finished getting ADC value.");
+    #endif
+    
+    return adc_raw_value;
+}
 
 
 /**

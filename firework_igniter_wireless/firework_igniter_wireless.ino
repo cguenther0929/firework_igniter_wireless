@@ -53,6 +53,7 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 uint16_t fuse_current_ma      = 50; //Value is in mA
 #define FUSE_CURRENT_MA_MIN     150
 #define FUSE_CURRENT_MA_MAX     800
+#define FUSE_CHK_DIG_THRESHOLD  50
 
 /**
  * Define version string constants
@@ -95,7 +96,8 @@ const uint16_t eeprom_address                 = 0b1010000;
 /**
  * IC register globals
 */
-const uint8_t acd_busy_register_address       = 0x0C;
+const uint8_t adc_busy_register_address       = 0x0C;
+const uint8_t adc_channel_read_start_addr     = 0x20;
 
 
 /**
@@ -463,13 +465,11 @@ void setup(void) {
       }
 
       /**
-       * Enable the appropriate output
-       * (1-16) and turn on the applicable 
-       * analog switch
+       * Enable the output (1-16) by enabling the 
+       * associated analog switch. 
       */
       else {
         set_anlgsw(input_message1_value); 
-        // set_all_anlgsw();
       }
 
         #if defined(ENABLE_LOGGING)
