@@ -28,6 +28,21 @@
  */
 // #define ENABLE_LOGGING
 
+/**
+ * Uncomment the following 
+ * if you wish to to see logging 
+ * data as it pertains to the fuse
+ * array
+ */
+#define ENABLE_LOGGING_FUSE_CHK_RELATED
+
+/**
+ * Define an array for the purpose
+ * of tracking the health of the fuses
+ */ 
+#define NUM_OF_FUSES                16
+uint8_t fuse_array[NUM_OF_FUSES]    = {0};
+
 /* Define Outputs */
 #define LOCAL_HB_LED    2
 
@@ -53,14 +68,14 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 uint16_t fuse_current_ma      = 50; //Value is in mA
 #define FUSE_CURRENT_MA_MIN     150
 #define FUSE_CURRENT_MA_MAX     800
-#define FUSE_CHK_DIG_THRESHOLD  50
+#define FUSE_OK_DIG_THRESHOLD  50
 
 /**
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.2.1.a";
-String HW_VERSION_STRING = "A02";
+String SW_VERSION_STRING = "0.3.0.a";
+String HW_VERSION_STRING = "A03";
 
 /**
  * Constants (slave addresses)
@@ -96,8 +111,11 @@ const uint16_t eeprom_address                 = 0b1010000;
 /**
  * IC register globals
 */
-const uint8_t adc_busy_register_address       = 0x0C;
+const uint8_t adc_busy_register_addr          = 0x0C;
 const uint8_t adc_channel_read_start_addr     = 0x20;
+const uint8_t adc_config_reg_addr             = 0x00;
+const uint8_t adc_advanced_congi_reg_addr     = 0x0B;
+const uint8_t adc_conv_rate_reg_addr          = 0x07;
 
 
 /**
@@ -322,10 +340,10 @@ void setup(void) {
   
   digitalWrite(LOCAL_HB_LED, LOW);  // The indicator is active high 
   
-  #if defined(ENABLE_LOGGING)
-    Serial.begin(9600);
-    Serial.setTimeout(50);    //Timeout value in ms -- max is 1000
-  #endif
+  // #if defined (ENABLE_LOGGING) || (ENABLE_LOGGING_FUSE_CHK_RELATED)
+  Serial.begin(9600);
+  Serial.setTimeout(50);    //Timeout value in ms -- max is 1000
+  // #endif
   
   current_state = STATE_1;
   current_screen = SCREEN_1;
@@ -509,12 +527,18 @@ void setup(void) {
   */
   set_fuse_current_ma(FUSE_CURRENT_MA_MIN);
 
+  /**
+  * Initialize the ADC 
+  */
+  init_adc();
+
 } /* END SETUP ROUTINE*/
 
 /**
  * @brief Main application loop
 */
 void loop(void) {
+  uint16_t i=0;
 
   if(Timer1msFlag == true) {
     Timer1msFlag = false;
@@ -572,6 +596,17 @@ void loop(void) {
       digitalWrite(LOCAL_HB_LED,1);  
       set_ioxpander_gpio(9); 
     }
+
+    check_fuses(fuse_array,NUM_OF_FUSES);
+
+    #if defined(ENABLE_LOGGING_FUSE_CHK_RELATED)
+        Serial.print("Fuse Array:  ");
+        for(i=0; i < 16; i++) {
+          Serial.print(fuse_array[i]);
+        }
+        Serial.print('\n');
+    #endif
+
     
   }
 

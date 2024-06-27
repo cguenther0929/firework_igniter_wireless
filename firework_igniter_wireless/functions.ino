@@ -1,10 +1,23 @@
 /**
- * @brief Print binary representation of a number
+ * @brief Print uint8_t binary representation of a number
+ * 
  * 
  * @return nothing
 */
-void printBin(byte aByte) {
+void print8b_bin(byte aByte) {
   for (int8_t aBit = 7; aBit >= 0; aBit--){
+    Serial.print(bitRead(aByte, aBit) ? '1' : '0');
+  }
+  Serial.print('\n');
+}
+
+/**
+ * @brief Print uint16_t binary representation of a number
+ * 
+ * @return nothing
+*/
+void print16b_bin(byte aByte) {
+  for (int8_t aBit = 15; aBit >= 0; aBit--){
     Serial.print(bitRead(aByte, aBit) ? '1' : '0');
   }
   Serial.print('\n');
@@ -162,9 +175,8 @@ void set_dac_value ( uint8_t binval) {
 bool adc128d_ch1to8_okay ( void ) {
     uint8_t sensor_value    = 0x00;
 
-
     Wire.beginTransmission(adc_ch1to8_address); 
-    Wire.write(adc_busy_register_address);        
+    Wire.write(adc_busy_register_addr);        
     Wire.endTransmission();
 
     Wire.requestFrom(adc_ch1to8_address, 1);    // Request 1 byte from the address   
@@ -176,8 +188,6 @@ bool adc128d_ch1to8_okay ( void ) {
     }
 
     return true;
-
-
 }
 
 /****
@@ -189,9 +199,8 @@ bool adc128d_ch1to8_okay ( void ) {
 bool adc128d_ch9to16_okay ( void ) {
     uint8_t sensor_value    = 0x00;
 
-
     Wire.beginTransmission(adc_ch9to16_address); 
-    Wire.write(adc_busy_register_address);        
+    Wire.write(adc_busy_register_addr);        
     Wire.endTransmission();
 
 
@@ -204,14 +213,7 @@ bool adc128d_ch9to16_okay ( void ) {
     }
 
     return true;
-
-
 }
-
-
-
-
-
 
 /****
  * @brief Check to verify the fuses are healthy
@@ -228,14 +230,10 @@ bool adc128d_ch9to16_okay ( void ) {
  * is 50mV.
  * 
 */
-
-
-// bool check_fuses ( void ) {
-//     uint16_t restore_fuse_current_ma    = 0x0000;
-//     uint8_t i                   = 0x00;
-// uint16_t adc_raw_value = 0x0000
-    
-    
+void check_fuses (uint8_t *ary, uint8_t count) {
+    // uint16_t restore_fuse_current_ma    = 0x0000;
+    uint8_t i                           = 0x00;
+    uint16_t adc_raw_value              = 0x0000;
     
     /**
      * Store the fuse current
@@ -244,65 +242,115 @@ bool adc128d_ch9to16_okay ( void ) {
      */
     // restore_fuse_current_ma      = fuse_current_ma; //Value is in mA
 
-
-
-
-
     /**
     * Set the fuse current 
     * to a low value so the 
     * fuses can be checked without 
     * setting off fireworks.
     */
-//     set_fuse_current_ma(100);
+    set_fuse_current_ma(100);
+
+
+    /**
+     * Make sure the ADCs are ready
+     * If the ADCs are not ready, return
+     * and indicate all fuses are bad ...
+     */
+    // TODO: need to have these conditionals return the correct thing ...
+    if (adc128d_ch1to8_okay()) {        // Situation where we're okay
+        __asm__("nop\n\t");;
+    }
+    else {                              // Situation where we're not okay
+        __asm__("nop\n\t");;
+    }
+
+    if (adc128d_ch9to16_okay()) {       // Situation where we're okay
+        __asm__("nop\n\t");;
+    }
+    else {
+        __asm__("nop\n\t");;
+
+    }                              // Situation where we're not okay
 
 
 
-
-
-//     /**
-//      * One-by-one enable 
-//      * the fuse and check the 
-//      * feedback to see if the fuse is valid
-//     */
-//     for (i=0;i<16;i++) {
-//          set_anlgsw(i);
+    /**
+     * One-by-one enable 
+     * the fuse and check the 
+     * feedback to see if the fuse is valid
+     * This is not zero-based, and so the
+     * functions expect 1 through 16 as
+     * input arguments
+    */
+    for (i=1; i <= count; i++) {
+         set_anlgsw(i);
             /* Now read the associated value from the ADC */
-            get_adc_value(i)
-            if (adc_raw_value > FUSE_CHK_DIG_THRESHOLDD){
-                //TODO: fuse is OK
+            adc_raw_value = get_adc_value(i);
+            
+            #if defined(ENABLE_LOGGING_FUSE_CHK_RELATED)
+                Serial.print("Raw analog value:  ");
+                Serial.println(adc_raw_value);
+            #endif
+            
+            
+            if (adc_raw_value > FUSE_OK_DIG_THRESHOLD){
+                ary[i-1] = 1;
             }
-//     }
+            else {
+                ary[i-1] = 0;
+            }
+    }
 
 
-
-
-
-
-//     /**
-//      * Kill all the analog switches 
-//      * before exiting
-//     */
-//     disable_all_anlgsw();
+    /**
+     * Kill all the analog switches 
+     * before exiting
+    */
+    disable_all_anlgsw();
     
-//     /**
-//      * Put the fuse current back
-//      * before exiting
-//     */
-//     set_fuse_current_ma(fuse_current_ma);
-
-
+    /**
+     * Put the fuse current back
+     * before exiting
+    */
+    set_fuse_current_ma(fuse_current_ma);
     
-//     return true;
-// }
+}
+
+// TODO: need to comment 
+void init_adc ( void ) {
+    /**
+     * Write to the conversion 
+     * rate register.
+     * The conversion rate can only be modified when 
+     * the chip is disabled.
+     */
+    Wire.beginTransmission(adc_ch1to8_address);
+    Wire.write(adc_conv_rate_reg_addr);        
+    Wire.write(0x01);                   // Request continuous conversion rate
+    Wire.endTransmission();
+    
+    Wire.beginTransmission(adc_ch9to16_address);
+    Wire.write(adc_conv_rate_reg_addr);        
+    Wire.write(0x01);                   
+    Wire.endTransmission();
 
 
+    /**
+     * Write to the configuration 
+     * register to enable the device
+     */
+    Wire.beginTransmission(adc_ch1to8_address);
+    Wire.write(adc_config_reg_addr);        
+    Wire.write(0x05);                   // Enable the device and clear interrupts 
+    Wire.endTransmission();
+    
+    Wire.beginTransmission(adc_ch9to16_address);
+    Wire.write(adc_config_reg_addr);       
+    Wire.write(0x05);                   
+    Wire.endTransmission();
 
 
-// uint16_t get_adc_reading (uint8_t number) {
-
-
-// }
+}
 
 
 /**
@@ -319,15 +367,15 @@ bool adc128d_ch9to16_okay ( void ) {
  * by the Data byte read from the ADC128D818.
  * 
 */
-uint16_t get_adc_value (number) {
+uint16_t get_adc_value (uint8_t number) {
     int address                     = 0x00;
     uint8_t internal_reg_address    = 0x00;
     uint8_t actual_channel          = 0x00;
     uint8_t i                       = 0x00;
     uint16_t adc_raw_value          = 0x0000;
 
-    #ifined(ENABLE_LOGGING)
-        Serial.print("Getting ADC value.");
+    #if defined(ENABLE_LOGGING)
+        Serial.println("Getting ADC value.");
     #endif
 
     /**
@@ -346,7 +394,7 @@ uint16_t get_adc_value (number) {
         actual_channel = number - 1;  //Zero-based
     }
 
-    (number > 8)?(address = iadc_ch9to16_address):(address = adc_ch1to8_address);
+    (number > 8)?(address = adc_ch9to16_address):(address = adc_ch1to8_address);
     
     /**
      * Set the address
@@ -366,19 +414,25 @@ uint16_t get_adc_value (number) {
 
 
     /**
-     * Read the data 
+     * Read the data (two-bytes)
      * (12-bit) right justified
+     * Here the address would be 
+     * "preset"
      */
-    // Wire.beginTransmission(address); //TODO: do we need a begin that is immediately proceeded by a requestFrom?
-    // TODO: I don't think we need beginTransmission
-    Wire.requestFrom(address, 2);    // Request 1 byte from the address
+    Wire.beginTransmission(address); //TODO: do we need a begin that is immediately proceeded by a requestFrom?
+    Wire.requestFrom(address, 2);    // Request 2 byte from the address
 
-    while(wire.available()) {
+    while(Wire.available() && i < 2) {
         if(i == 0) {
-            adc_raw_value = (Wire.read() & 0x00FF);
+            adc_raw_value = (uint16_t)(Wire.read() & 0x0F);
+            #if defined(ENABLE_LOGGING_FUSE_CHK_RELATED)
+                Serial.print("ADC Lower Nibble: ");
+                Serial.print(adc_raw_value);
+                Serial.print(" ... ");
+            #endif
         }
         else {
-            adc_raw_value = (((adc_raw_value << 8) | Wire.read()) & 0x1FFF);          
+            adc_raw_value = (((adc_raw_value << 8)  | Wire.read()) & 0x0FFF);          
         }
         
         i++;
@@ -386,8 +440,8 @@ uint16_t get_adc_value (number) {
     
     Wire.endTransmission();
     
-    #ifined(ENABLE_LOGGING)
-        Serial.print("Finished getting ADC value.");
+    #if defined(ENABLE_LOGGING)
+        Serial.println("Finished getting ADC value.");
     #endif
     
     return adc_raw_value;
@@ -430,7 +484,7 @@ bool set_ioxpander_gpio (uint8_t number) {
     value_mask = (0b00000001) << (shift_value);
     #if defined(ENABLE_LOGGING)
         Serial.print("Mask --> ");
-        printBin(value_mask);
+        print8b_bin(value_mask);
     #endif
 
     /**
@@ -447,7 +501,7 @@ bool set_ioxpander_gpio (uint8_t number) {
 
     #if defined(ENABLE_LOGGING)
         Serial.print("GPIO Read --> ");
-        printBin(gpio_read_value);
+        print8b_bin(gpio_read_value);
     #endif
 
     /**
@@ -511,7 +565,7 @@ bool clear_ioxpander_gpio (uint8_t number) {
     value_mask ^= (0xFF);
     #if defined(ENABLE_LOGGING)
         Serial.print("Mask: ");
-        printBin(value_mask);
+        print8b_bin(value_mask);
     #endif
 
     Wire.beginTransmission(address); 
@@ -522,7 +576,7 @@ bool clear_ioxpander_gpio (uint8_t number) {
     
     #if defined(ENABLE_LOGGING)
         Serial.print("GPIO Read: ");
-        printBin(gpio_read_value);
+        print8b_bin(gpio_read_value);
     #endif
     
     /**
