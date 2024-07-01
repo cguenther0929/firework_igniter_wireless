@@ -52,8 +52,6 @@ bool display_screen ( void ){
         break;
 
         case SCREEN_2:
-            // TODO: we shoule be able to remove the following 
-            // String str_fuse_current = String(fuse_current_ma);
             
             u8x8.clear();
             current_oled_row = 0; 
@@ -110,11 +108,6 @@ void set_fuse_current_ma (uint16_t maval) {
 
     bit_value = (uint8_t)(mv_voltage_target/MV_PER_BIT);
     
-    // TODO: for debugging only
-    // Serial.print("The calculated bit value: "); Serial.println(bit_value);
-
-    // bit_value = ((maval/1000)*0.5*255)/3.3;
-
     set_dac_value(bit_value);
 }
 
@@ -257,22 +250,25 @@ void check_fuses (uint8_t *ary, uint8_t count) {
      * If the ADCs are not ready, return
      * and indicate all fuses are bad ...
      */
-    // TODO: need to have these conditionals return the correct thing ...
     if (adc128d_ch1to8_okay()) {        // Situation where we're okay
-        __asm__("nop\n\t");;
+        __asm__("nop\n\t");
     }
     else {                              // Situation where we're not okay
-        __asm__("nop\n\t");;
+        #if defined(ENABLE_LOGGING_ADC_RELATED)
+            Serial.println("ADC CH1-8 NOTOK.");
+        #endif
+        __asm__("nop\n\t");
     }
 
     if (adc128d_ch9to16_okay()) {       // Situation where we're okay
-        __asm__("nop\n\t");;
+        __asm__("nop\n\t");
     }
     else {
-        __asm__("nop\n\t");;
-
-    }                              // Situation where we're not okay
-
+        #if defined(ENABLE_LOGGING_ADC_RELATED)
+            Serial.println("ADC CH9-16 NOTOK.");
+        #endif
+    }
+        // __asm__("nop\n\t"); //TODO need to remove superfluous lines
 
 
     /**
@@ -653,7 +649,6 @@ void init_adc ( void ) {
 
 }
 
-
 /**
  * @brief Get ADC value from ADC for specified channel
  * 
@@ -722,7 +717,6 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
     Wire.write(adc_zero_based_ch_reg_addr);        
     Wire.endTransmission();
 
-
     /**
      * Read the data (two-bytes)
      * (12-bit) right justified
@@ -732,7 +726,6 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
      */
     Wire.beginTransmission(address); 
     Wire.requestFrom(address, 2);    // Request 2 byte from the address
-
     
     while(Wire.available() && i < 2) {
         if(i == 0) {
@@ -764,7 +757,18 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
     return adc_raw_value;
 }
 
-// TODO: need to comment
+/**
+ * @brief Read the interrupt status register from the CH1 through 16 ADC
+ * 
+ * @param nothing
+ * 
+ * @return nothing
+ * 
+ * The purpose of this function is 
+ * to read from the interrupt status register 
+ * within the ADC.   
+ * 
+*/
 uint8_t get_adc1thru8_int_stat_reg ( void ){
     uint8_t status_byte = 0x00;
 
@@ -774,7 +778,6 @@ uint8_t get_adc1thru8_int_stat_reg ( void ){
     Wire.beginTransmission(adc_ch1to8_address);
     Wire.write(adc_int_stat_reg_addr);        
     Wire.endTransmission();
-
 
     /**
      * Read the contents of the 

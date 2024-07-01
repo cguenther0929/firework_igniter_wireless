@@ -1,11 +1,7 @@
 /**
- * TODO: Nice to have ... Push the fuse current from the web interface
  * 
- * 
- * TODO: A lot of button progress was made, but it still doesn't 
- * TODO: appear to submit the value.  In the <form /> definition, 
- * TODO: it seems to crash if we make the method a post instead of get.
- * This might be a good tutorial: https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_form_method
+ * For button pushing 
+ * this might be a good tutorial: https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_form_method
  * 
  * 
 */
@@ -34,7 +30,7 @@
  * data as it pertains to the fuse
  * array
  */
-#define ENABLE_LOGGING_ADC_RELATED
+// #define ENABLE_LOGGING_ADC_RELATED
 
 /**
  * Define an array for the purpose
@@ -67,14 +63,14 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 */
 #define FUSE_CURRENT_MA_MIN     150
 #define FUSE_CURRENT_MA_MAX     800
-#define FUSE_OK_DIG_THRESHOLD  50
-uint16_t fuse_current_ma      = FUSE_CURRENT_MA_MIN; //Value is in mA
+#define FUSE_OK_DIG_THRESHOLD   50
+uint16_t fuse_current_ma        = FUSE_CURRENT_MA_MIN; //Value is in mA
 
 /**
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.3.1.a";
+String SW_VERSION_STRING = "0.3.2.a";
 String HW_VERSION_STRING = "A03";
 
 /**
@@ -435,20 +431,6 @@ void setup(void) {
     Serial.println(input_message2_value);
   #endif
 
-    // TODO: Need to clean the following up if it works
-    if(request->hasParam("fuse_value")){
-      #if defined(ENABLE_LOGGING)
-        Serial.println("A fuse value was submitted.");
-      #endif
-      
-      inputMessage1 = request->getParam("fuse_value")->value();
-      input_message1_value = inputMessage1.toInt();
-      #if defined(ENABLE_LOGGING)
-        Serial.print("Fuse Current Submitted: ");
-        Serial.print(input_message1_value);
-      #endif
-    }
-    
     /**
      * GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
      * Here is where we set the output based on the the fuse value selected
