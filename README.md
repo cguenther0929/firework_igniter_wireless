@@ -44,4 +44,4 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 
 * 0.2.1.a -- The "ARM" switch was implemented that allows the user to quickly toggle between MIN and MAX fuse current.  When the system is "armed" the RED LED at, the front of the enclosure, will illuminate. 
 
-* 0.2.1.b -- The default starting fuse current is now MIN and not 50mA.
+* 0.3.2.a -- Fuse verification features have been rolled in, but don't seem to be working.  All logging features were turned off.  This version can be used for the show.  

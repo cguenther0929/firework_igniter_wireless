@@ -1,11 +1,7 @@
 /**
- * TODO: Nice to have ... Push the fuse current from the web interface
  * 
- * 
- * TODO: A lot of button progress was made, but it still doesn't 
- * TODO: appear to submit the value.  In the <form /> definition, 
- * TODO: it seems to crash if we make the method a post instead of get.
- * This might be a good tutorial: https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_form_method
+ * For button pushing 
+ * this might be a good tutorial: https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_form_method
  * 
  * 
 */
@@ -27,6 +23,21 @@
  * data printed to the screen
  */
 // #define ENABLE_LOGGING
+
+/**
+ * Uncomment the following 
+ * if you wish to to see logging 
+ * data as it pertains to the fuse
+ * array
+ */
+// #define ENABLE_LOGGING_ADC_RELATED
+
+/**
+ * Define an array for the purpose
+ * of tracking the health of the fuses
+ */ 
+#define NUM_OF_FUSES                16
+uint8_t fuse_array[NUM_OF_FUSES]    = {0};
 
 /* Define Outputs */
 #define LOCAL_HB_LED    2
@@ -52,14 +63,24 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 */
 #define FUSE_CURRENT_MA_MIN     150
 #define FUSE_CURRENT_MA_MAX     800
+<<<<<<< HEAD
 uint16_t fuse_current_ma      = FUSE_CURRENT_MA_MIN; //Value is in mA
+=======
+#define FUSE_OK_DIG_THRESHOLD   50
+uint16_t fuse_current_ma        = FUSE_CURRENT_MA_MIN; //Value is in mA
+>>>>>>> adc_work
 
 /**
  * Define version string constants
 */
 String version_string = "";
+<<<<<<< HEAD
 String SW_VERSION_STRING = "0.2.1.b";
 String HW_VERSION_STRING = "A02";
+=======
+String SW_VERSION_STRING = "0.3.2.a";
+String HW_VERSION_STRING = "A03";
+>>>>>>> adc_work
 
 /**
  * Constants (slave addresses)
@@ -93,9 +114,36 @@ const uint16_t eeprom_address                 = 0b1010000;
 
 
 /**
- * IC register globals
+ * Internal Addresses 
+ * of ADC registers
 */
-const uint8_t acd_busy_register_address       = 0x0C;
+const uint8_t adc_config_reg_addr             = 0x00;
+const uint8_t adc_int_stat_reg_addr           = 0x01;
+const uint8_t adc_conv_rate_reg_addr          = 0x07;
+const uint8_t adc_ch_disable_reg_addr         = 0x08;
+const uint8_t adc_adv_config_reg_addr         = 0x0B;
+const uint8_t adc_busy_register_addr          = 0x0C;
+const uint8_t adc_channel_read_start_addr     = 0x20;
+
+const uint8_t adc_in0_high_limit_reg_addr     = 0x2A;
+const uint8_t adc_in0_low_limit_reg_addr      = 0x2B;
+const uint8_t adc_in1_high_limit_reg_addr     = 0x2C;
+const uint8_t adc_in1_low_limit_reg_addr      = 0x2D;
+const uint8_t adc_in2_high_limit_reg_addr     = 0x2E;
+const uint8_t adc_in2_low_limit_reg_addr      = 0x2F;
+const uint8_t adc_in3_high_limit_reg_addr     = 0x30;
+const uint8_t adc_in3_low_limit_reg_addr      = 0x31;
+const uint8_t adc_in4_high_limit_reg_addr     = 0x32;
+const uint8_t adc_in4_low_limit_reg_addr      = 0x33;
+const uint8_t adc_in5_high_limit_reg_addr     = 0x34;
+const uint8_t adc_in5_low_limit_reg_addr      = 0x35;
+const uint8_t adc_in6_high_limit_reg_addr     = 0x36;
+const uint8_t adc_in6_low_limit_reg_addr      = 0x37;
+const uint8_t adc_in7_high_limit_reg_addr     = 0x38;
+const uint8_t adc_in7_low_limit_reg_addr      = 0x39;
+
+const uint8_t adc_mfgid_reg_addr              = 0x3E;
+const uint8_t adc_revid_reg_addr              = 0x3F;
 
 
 /**
@@ -320,10 +368,10 @@ void setup(void) {
   
   digitalWrite(LOCAL_HB_LED, LOW);  // The indicator is active high 
   
-  #if defined(ENABLE_LOGGING)
-    Serial.begin(9600);
-    Serial.setTimeout(50);    //Timeout value in ms -- max is 1000
-  #endif
+  // #if defined (ENABLE_LOGGING) || (ENABLE_LOGGING_ADC_RELATED)
+  Serial.begin(115200);
+  Serial.setTimeout(50);    //Timeout value in ms -- max is 1000
+  // #endif
   
   current_state = STATE_1;
   current_screen = SCREEN_1;
@@ -392,20 +440,6 @@ void setup(void) {
     Serial.println(input_message2_value);
   #endif
 
-    // TODO: Need to clean the following up if it works
-    if(request->hasParam("fuse_value")){
-      #if defined(ENABLE_LOGGING)
-        Serial.println("A fuse value was submitted.");
-      #endif
-      
-      inputMessage1 = request->getParam("fuse_value")->value();
-      input_message1_value = inputMessage1.toInt();
-      #if defined(ENABLE_LOGGING)
-        Serial.print("Fuse Current Submitted: ");
-        Serial.print(input_message1_value);
-      #endif
-    }
-    
     /**
      * GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
      * Here is where we set the output based on the the fuse value selected
@@ -463,13 +497,11 @@ void setup(void) {
       }
 
       /**
-       * Enable the appropriate output
-       * (1-16) and turn on the applicable 
-       * analog switch
+       * Enable the output (1-16) by enabling the 
+       * associated analog switch. 
       */
       else {
         set_anlgsw(input_message1_value); 
-        // set_all_anlgsw();
       }
 
         #if defined(ENABLE_LOGGING)
@@ -509,12 +541,46 @@ void setup(void) {
   */
   set_fuse_current_ma(FUSE_CURRENT_MA_MIN);
 
+  /**
+  * Initialize the ADC 
+  */
+  init_adc();
+
+  /**
+   * Read the MFG and REV
+   * IDs from the chip
+   */
+  #if defined(ENABLE_LOGGING_ADC_RELATED)
+    Serial.print('\n');
+    Serial.print('\n');
+
+    Serial.println("MFGID SHOULD BE 1 and REVID SHOULD BE 9.");
+    Serial.print("ADC 1thru8 MFGID: ");
+    Serial.print(get_adc1thru8_mfgid());
+    Serial.print(" ... ");
+    Serial.print("ADC9thru16 MFGID: ");
+    Serial.print(get_adc9thru16_mfgid());
+    Serial.print('\n');
+    Serial.print('\n');
+
+
+    Serial.print("ADC 1thru8 REVID: ");
+    Serial.print(get_adc1thru8_revid());
+    Serial.print(" ... ");
+    Serial.print("ADC 9thru16 REVID: ");
+    Serial.print(get_adc9thru16_revid());
+    Serial.print('\n');
+    Serial.print('\n');
+  #endif
+
+
 } /* END SETUP ROUTINE*/
 
 /**
  * @brief Main application loop
 */
 void loop(void) {
+  uint16_t i=0;
 
   if(Timer1msFlag == true) {
     Timer1msFlag = false;
@@ -572,6 +638,17 @@ void loop(void) {
       digitalWrite(LOCAL_HB_LED,1);  
       set_ioxpander_gpio(9); 
     }
+
+    check_fuses(fuse_array,NUM_OF_FUSES);
+
+    #if defined(ENABLE_LOGGING_ADC_RELATED)
+        Serial.print("Fuse Array:  ");
+        for(i=0; i < 16; i++) {
+          Serial.print(fuse_array[i]);
+        }
+        Serial.print('\n');
+    #endif
+
     
   }
 
