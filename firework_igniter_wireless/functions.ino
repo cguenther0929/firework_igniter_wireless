@@ -118,7 +118,7 @@ void set_fuse_current_ma (uint16_t maval) {
  * 
  * @return nothing
 */
-void set_dac_value ( uint8_t binval) {
+void set_dac_value (uint8_t binval) {
     /**
      * 8b DAC which uses the supply 
      * voltage as the reference (3V3).
@@ -160,7 +160,7 @@ void set_dac_value ( uint8_t binval) {
 
 }
 
-/****
+/**
  * @brief To determine if the ADC (CH 1 through 8) is OKAY
  * 
  * @return true of false 
@@ -183,7 +183,7 @@ bool adc128d_ch1to8_okay ( void ) {
     return true;
 }
 
-/****
+/**
  * @brief To determine if the ADC (CH 9 through 16) is OKAY
  * 
  * @return true of false 
@@ -208,7 +208,6 @@ bool adc128d_ch9to16_okay ( void ) {
     return true;
 }
 
-
 /**
  * @brief Check to verify the fuses are healthy
  * 
@@ -224,17 +223,10 @@ bool adc128d_ch9to16_okay ( void ) {
  * is 50mV.
  * 
 */
-void check_fuses (uint8_t *ary, uint8_t count) {
-    // uint16_t restore_fuse_current_ma    = 0x0000;
+void check_fuses (int ary[], uint8_t count) {
     uint8_t i                           = 0x00;
     uint16_t adc_raw_value              = 0x0000;
     
-    /**
-     * Store the fuse current
-     * value so it can be put back 
-     * before leaving the function 
-     */
-    // restore_fuse_current_ma      = fuse_current_ma; //Value is in mA
 
     /**
     * Set the fuse current 
@@ -250,25 +242,17 @@ void check_fuses (uint8_t *ary, uint8_t count) {
      * If the ADCs are not ready, return
      * and indicate all fuses are bad ...
      */
-    if (adc128d_ch1to8_okay()) {        // Situation where we're okay
-        __asm__("nop\n\t");
-    }
-    else {                              // Situation where we're not okay
+    if (!adc128d_ch1to8_okay()) {        // Situation where we're okay
         #if defined(ENABLE_LOGGING_ADC_RELATED)
             Serial.println("ADC CH1-8 NOTOK.");
         #endif
-        __asm__("nop\n\t");
     }
 
-    if (adc128d_ch9to16_okay()) {       // Situation where we're okay
-        __asm__("nop\n\t");
-    }
-    else {
+    if (!adc128d_ch9to16_okay()) {       // Situation where we're okay
         #if defined(ENABLE_LOGGING_ADC_RELATED)
             Serial.println("ADC CH9-16 NOTOK.");
         #endif
     }
-        // __asm__("nop\n\t"); //TODO need to remove superfluous lines
 
 
     /**
@@ -280,22 +264,22 @@ void check_fuses (uint8_t *ary, uint8_t count) {
      * input arguments
     */
     for (i=1; i <= count; i++) {
-         set_anlgsw(i);
-            /* Now read the associated value from the ADC */
-            adc_raw_value = get_adc_value(i);
+        set_anlgsw(i);
+        /* Now read the associated value from the ADC */
+        adc_raw_value = get_adc_value(i);
             
-            #if defined(ENABLE_LOGGING_ADC_RELATED)
-                Serial.print("Raw analog value:  ");
-                Serial.println(adc_raw_value);
-            #endif
+        #if defined(ENABLE_LOGGING_ADC_RELATED)
+            Serial.print("Raw analog value:  ");
+            Serial.println(adc_raw_value);
+        #endif
             
             
-            if (adc_raw_value > FUSE_OK_DIG_THRESHOLD){
-                ary[i-1] = 1;
-            }
-            else {
-                ary[i-1] = 0;
-            }
+        if (adc_raw_value > FUSE_OK_DIG_THRESHOLD){
+            ary[i-1] = 1;
+        }
+        else {
+            ary[i-1] = 0;
+        }
     }
 
 
@@ -664,12 +648,12 @@ void init_adc ( void ) {
  * 
 */
 uint16_t get_adc_value (uint8_t adc_ch1thru16) {
-    int address                             = 0x00;
     uint8_t adc_zero_based_ch_reg_addr      = 0x00;
     uint8_t zero_based_adc_ch               = 0x00;
-    uint8_t i                               = 0x00;
+    uint8_t i2c_byte_ctr                    = 0x00;
     uint8_t adc_lower_nibble                = 0x00;
     uint8_t adc_upper_nibble                = 0x00;
+    uint16_t address                         = 0x00;
     uint16_t adc_raw_value                  = 0x0000;
 
     #if defined(ENABLE_LOGGING)
@@ -701,14 +685,13 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
      * for the IC, the data 
      * registers start at 0x20
      */
-    adc_zero_based_ch_reg_addr  = adc_channel_read_start_addr + zero_based_adc_ch;
+    adc_zero_based_ch_reg_addr  = (uint8_t)(adc_channel_read_start_addr + zero_based_adc_ch);
 
     #if defined(ENABLE_LOGGING_ADC_RELATED)
         Serial.print("ADC 1thru8 INT STAT: ");
-        Serial.print(get_adc1thru8_int_stat_reg());
-        Serial.print(" ... ADC 9thru16 INT STAT: ");
-        Serial.print(get_adc9thru16_int_stat_reg());
-        Serial.print('\n');
+        print8b_bin(get_adc1thru8_int_stat_reg());
+        Serial.print("ADC 9thru16 INT STAT: ");
+        print8b_bin(get_adc9thru16_int_stat_reg());
     #endif
     /** 
      * Set the address of the internal register
@@ -727,20 +710,24 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
     Wire.beginTransmission(address); 
     Wire.requestFrom(address, 2);    // Request 2 byte from the address
     
-    while(Wire.available() && i < 2) {
-        if(i == 0) {
+    while(Wire.available() && i2c_byte_ctr < 2) {
+        if(i2c_byte_ctr == 0) {
             adc_upper_nibble = Wire.read() & 0x0F; //Only want bits [11:8] here.
+            // adc_upper_nibble = Wire.read(); //Only want bits [11:8] here. //TODO: can remove this line that was added for testing
         }
         else {
             adc_lower_nibble = Wire.read();
         }
         
-        i++;
+        i2c_byte_ctr++;
     }
     
     Wire.endTransmission();
     
+    
     #if defined(ENABLE_LOGGING_ADC_RELATED)
+        Serial.print("Val of while ctr: ");
+        Serial.println(i2c_byte_ctr);
         Serial.print("ADC Up: ");
         Serial.print(adc_upper_nibble);
         Serial.print(" ... ADC Low: ");
@@ -758,7 +745,7 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
 }
 
 /**
- * @brief Read the interrupt status register from the CH1 through 16 ADC
+ * @brief Read the interrupt status register from the CH1 through 8 ADC
  * 
  * @param nothing
  * 
@@ -786,7 +773,6 @@ uint8_t get_adc1thru8_int_stat_reg ( void ){
     Wire.beginTransmission(adc_ch1to8_address); 
     Wire.requestFrom(adc_ch1to8_address, 1);    // Request 1 byte from the address
 
-
     status_byte = Wire.read();
 
     Wire.endTransmission();
@@ -794,6 +780,19 @@ uint8_t get_adc1thru8_int_stat_reg ( void ){
     return status_byte;
 
 }
+
+/**
+ * @brief Read the interrupt status register from the CH9 through 16 ADC
+ * 
+ * @param nothing
+ * 
+ * @return nothing
+ * 
+ * The purpose of this function is 
+ * to read from the interrupt status register 
+ * within the ADC.   
+ * 
+*/
 uint8_t get_adc9thru16_int_stat_reg ( void ){
     uint8_t status_byte = 0x00;
 
@@ -821,7 +820,6 @@ uint8_t get_adc9thru16_int_stat_reg ( void ){
 
 }
 
-
 /**
  * @brief Get the manufacture ID value from the CH1 to CH8 ADC
  * 
@@ -835,7 +833,7 @@ uint8_t get_adc1thru8_mfgid ( void ) {
      * Set the address of the internal register
      */
     Wire.beginTransmission(adc_ch1to8_address);
-    Wire.write(adc_mfgid_reg_addr );        
+    Wire.write(adc_mfgid_reg_addr);        
     Wire.endTransmission();
 
 

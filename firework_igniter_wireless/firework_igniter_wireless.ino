@@ -26,18 +26,27 @@
 
 /**
  * Uncomment the following 
+ * if you wish to have logging 
+ * data (related to timer functions)
+ * printed to the screen
+ */
+// #define TIMER_LOGGING
+
+/**
+ * Uncomment the following 
  * if you wish to to see logging 
  * data as it pertains to the fuse
  * array
  */
-// #define ENABLE_LOGGING_ADC_RELATED
+#define ENABLE_LOGGING_ADC_RELATED
 
 /**
  * Define an array for the purpose
  * of tracking the health of the fuses
  */ 
 #define NUM_OF_FUSES                16
-uint8_t fuse_array[NUM_OF_FUSES]    = {0};
+int fuse_array[NUM_OF_FUSES];
+bool fuse_ignition_active           = false;
 
 /* Define Outputs */
 #define LOCAL_HB_LED    2
@@ -70,7 +79,7 @@ uint16_t fuse_current_ma        = FUSE_CURRENT_MA_MIN; //Value is in mA
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.3.2.a";
+String SW_VERSION_STRING = "0.3.3.a";
 String HW_VERSION_STRING = "A03";
 
 /**
@@ -218,8 +227,8 @@ bool            timer_running       = false;
 long            seconds_counter     = 0;        //32bit value 4.264....e9
 long            tick_1ms_counter    = 0;        //32bit value.  At 20ms, this can count to 8.5899e7 seconds
 
-uint8_t         timeout_seconds     = 4.0;
-uint16_t        timeout_1ms_ticks   = timeout_seconds/0.001;
+uint16_t        timeout_seconds     = 4.0;
+uint16_t        timeout_1ms_ticks   = (uint16_t)(timeout_seconds/0.001);
 
 
 
@@ -359,10 +368,8 @@ void setup(void) {
   
   digitalWrite(LOCAL_HB_LED, LOW);  // The indicator is active high 
   
-  // #if defined (ENABLE_LOGGING) || (ENABLE_LOGGING_ADC_RELATED)
   Serial.begin(115200);
   Serial.setTimeout(50);    //Timeout value in ms -- max is 1000
-  // #endif
   
   current_state = STATE_1;
   current_screen = SCREEN_1;
@@ -493,6 +500,7 @@ void setup(void) {
       */
       else {
         set_anlgsw(input_message1_value); 
+        fuse_ignition_active = true;
       }
 
         #if defined(ENABLE_LOGGING)
@@ -524,7 +532,7 @@ void setup(void) {
   //Initialize Ticker every 0.05s
   timer1_attachInterrupt(onTimerISR);
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
-  timer1_write(tmr1_write_val);        //.05s 
+  timer1_write(tmr1_write_val);        //.001s 
 
   
   /**
@@ -594,11 +602,12 @@ void loop(void) {
     if(tick_1ms_counter >= timeout_1ms_ticks) {
       
       disable_all_anlgsw();  
-      #if defined(ENABLE_LOGGING)
+      #if defined(TIMER_LOGGING)
         Serial.println("Time expired");
       #endif
       
       tick_1ms_counter = 0;
+      fuse_ignition_active = false;
       timer_running = false;  
     }
   }
@@ -630,14 +639,21 @@ void loop(void) {
       set_ioxpander_gpio(9); 
     }
 
-    check_fuses(fuse_array,NUM_OF_FUSES);
+    /**
+     * The fuse check algorithm
+     * shan't run if fuse ignition is active 
+     * TODO: we may want to enable this routine 
+     */
+    // if(!fuse_ignition_active) {   
+    //   check_fuses(fuse_array,NUM_OF_FUSES);
+    // }
 
     #if defined(ENABLE_LOGGING_ADC_RELATED)
         Serial.print("Fuse Array:  ");
         for(i=0; i < 16; i++) {
           Serial.print(fuse_array[i]);
         }
-        Serial.print('\n');
+        Serial.println('\n');
     #endif
 
     

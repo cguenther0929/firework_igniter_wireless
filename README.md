@@ -45,3 +45,5 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 * 0.2.1.a -- The "ARM" switch was implemented that allows the user to quickly toggle between MIN and MAX fuse current.  When the system is "armed" the RED LED at, the front of the enclosure, will illuminate. 
 
 * 0.3.2.a -- Fuse verification features have been rolled in, but don't seem to be working.  All logging features were turned off.  This version can be used for the show.  
+
+* 0.3.3.a -- A timing issue related to fuse ignition was corrected. Said issue was that the dwell time for how long a fuse igniter was energized was too short due to the fuse checking routine.  The long-term solution will be to put the fuse check routine inside a conditional so that it doesn't run when a fuse is being ignited.  In the interim and in this version, however, the fuse checking routine has been disabled.   
