@@ -61,6 +61,8 @@ bool fuse_ignition_active           = false;
 #define EXT_RED_LED     10  
 #define EXT_YEL_LED     11
 
+
+
 /**
  * Volts per bit for
  * the eight bit DAC.
@@ -79,7 +81,8 @@ uint16_t fuse_current_ma        = FUSE_CURRENT_MA_MIN; //Value is in mA
  * Define version string constants
 */
 String version_string = "";
-String SW_VERSION_STRING = "0.3.3.a";
+// String SW_VERSION_STRING = "0.3.3.a";  //TODO remove this line?
+String SW_VERSION_STRING = "0.3.4.a";
 String HW_VERSION_STRING = "A03";
 
 /**
@@ -98,19 +101,26 @@ String HW_VERSION_STRING = "A03";
  * I2C (Wire) functions want 
  * 16bit addresses, thus the width 
  * of these addresses is set to 16bits
+ * 
+ * Note, in order to ascertain the I2C address, 
+ * we fist must right-shift the address value (to drop the R/W bit).  
+ * The Arduino I2C instance will left shift and tack
+ * on the appropriate R/W bit for us.  
 */
-const uint16_t io_expander_7b_address_p0p7    = 0b1101000;
-const uint16_t io_expander_7b_address_o8o15   = 0b1011000;
+#define   io_expander_7b_address_p0p7         0x68
+#define   io_expander_7b_address_o8o15        0x58
 
-const uint16_t anlg_sw_ch1to8_address         = 0b1001100;
-const uint16_t anlg_sw_ch9to16_address        = 0b1001110;
+#define   anlg_sw_ch1to8_address              0x8C
+#define   anlg_sw_ch9to16_address             0x8E
 
-const uint16_t adc_ch1to8_address             = 0b0011101;
-const uint16_t adc_ch9to16_address            = 0b0110111;
+//TODO 5/20/25 I'm convinced that the following is correct.  
+#define   ADC_CH1TO8_ADDRESS                  0x1D
+#define   ADC_CH9TO16_ADDRESS                 0x37
 
-const uint16_t dac_address                    = 0b0001101;
+#define   dac_address                         0x0D
 
-const uint16_t eeprom_address                 = 0b1010000;
+// The EEPROM is not being used, and there is a conflict
+// const uint16_t eeprom_address                 = 0x50; 
 
 
 /**
@@ -356,7 +366,8 @@ void ICACHE_RAM_ATTR onTimerISR(){
   * @brief BEGINNING OF SETUP ROUTINE
  */
 
-void setup(void) {
+void setup(void) 
+{
   
   /**
    * Setup pin directions
@@ -368,7 +379,7 @@ void setup(void) {
   
   digitalWrite(LOCAL_HB_LED, LOW);  // The indicator is active high 
   
-  Serial.begin(115200);
+  Serial.begin(57600);
   Serial.setTimeout(50);    //Timeout value in ms -- max is 1000
   
   current_state = STATE_1;
@@ -378,6 +389,10 @@ void setup(void) {
     Serial.println("Module just rebooted.");
   #endif
 
+  /**
+   * Initialize I2C
+   */
+  init_i2c();  
 
   /**
    * Initialize the OLED
@@ -540,36 +555,43 @@ void setup(void) {
   */
   set_fuse_current_ma(FUSE_CURRENT_MA_MIN);
 
+
   /**
   * Initialize the ADC 
   */
-  init_adc();
+  // init_adc();  //TODO might want to enable this
 
   /**
-   * Read the MFG and REV
-   * IDs from the chip
+   * Print boot message and 
+   * possibly ADC debug information
    */
+  Serial.println();
+  Serial.println();
+  Serial.println("===========================");
+  Serial.println("========= RESET ===========");
+  Serial.println("===========================");
+  
   #if defined(ENABLE_LOGGING_ADC_RELATED)
-    Serial.print('\n');
-    Serial.print('\n');
+    Serial.println();
+    Serial.println();
 
     Serial.println("MFGID SHOULD BE 1 and REVID SHOULD BE 9.");
     Serial.print("ADC 1thru8 MFGID: ");
     Serial.print(get_adc1thru8_mfgid());
     Serial.print(" ... ");
-    Serial.print("ADC9thru16 MFGID: ");
+    Serial.print("ADC 9thru16 MFGID: ");
     Serial.print(get_adc9thru16_mfgid());
-    Serial.print('\n');
-    Serial.print('\n');
-
-
+    Serial.println();
+    Serial.println();
+    
+    
     Serial.print("ADC 1thru8 REVID: ");
     Serial.print(get_adc1thru8_revid());
     Serial.print(" ... ");
     Serial.print("ADC 9thru16 REVID: ");
     Serial.print(get_adc9thru16_revid());
-    Serial.print('\n');
-    Serial.print('\n');
+    Serial.println();
+    Serial.println();
   #endif
 
 
@@ -642,11 +664,11 @@ void loop(void) {
     /**
      * The fuse check algorithm
      * shan't run if fuse ignition is active 
-     * TODO: we may want to enable this routine 
      */
-    // if(!fuse_ignition_active) {   
-    //   check_fuses(fuse_array,NUM_OF_FUSES);
-    // }
+    if(!fuse_ignition_active) 
+    {   
+      check_fuses(fuse_array,NUM_OF_FUSES);
+    }
 
     #if defined(ENABLE_LOGGING_ADC_RELATED)
         Serial.print("Fuse Array:  ");
