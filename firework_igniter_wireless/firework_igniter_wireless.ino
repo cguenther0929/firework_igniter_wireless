@@ -5,9 +5,10 @@
  * 
  * 
 */
-/*
+/**
  * This is the main source file for the ESP8266 WiFi SOM
- * 
+ * TODO Sometimes fuses won't come on at all, and we need to fix that.  Send request twice?
+ * TODO need to add a display that shows fuse health
 */
 #include <ESPAsyncWebServer.h>
 #include <ESPAsyncTCP.h>
@@ -38,7 +39,7 @@
  * data as it pertains to the fuse
  * array
  */
-#define ENABLE_LOGGING_ADC_RELATED
+#define ENABLE_LOGGING_ADC_RELATED  true
 
 /**
  * Define an array for the purpose
@@ -74,7 +75,7 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 */
 #define FUSE_CURRENT_MA_MIN     150
 #define FUSE_CURRENT_MA_MAX     800
-#define FUSE_OK_DIG_THRESHOLD   50
+
 uint16_t fuse_current_ma        = FUSE_CURRENT_MA_MIN; //Value is in mA
 
 /**
@@ -110,12 +111,10 @@ String HW_VERSION_STRING = "A03";
 #define   io_expander_7b_address_p0p7         0x68
 #define   io_expander_7b_address_o8o15        0x58
 
-#define   anlg_sw_ch1to8_address              0x8C
-#define   anlg_sw_ch9to16_address             0x8E
+#define   ANLG_SW_CH1to8_ADDRESS              0x4C
+#define   ANLG_SW_CH9to16_ADDRESS             0x4E
 
-//TODO 5/20/25 I'm convinced that the following is correct.  
-#define   ADC_CH1TO8_ADDRESS                  0x1D
-#define   ADC_CH9TO16_ADDRESS                 0x37
+
 
 #define   dac_address                         0x0D
 
@@ -123,37 +122,6 @@ String HW_VERSION_STRING = "A03";
 // const uint16_t eeprom_address                 = 0x50; 
 
 
-/**
- * Internal Addresses 
- * of ADC registers
-*/
-const uint8_t adc_config_reg_addr             = 0x00;
-const uint8_t adc_int_stat_reg_addr           = 0x01;
-const uint8_t adc_conv_rate_reg_addr          = 0x07;
-const uint8_t adc_ch_disable_reg_addr         = 0x08;
-const uint8_t adc_adv_config_reg_addr         = 0x0B;
-const uint8_t adc_busy_register_addr          = 0x0C;
-const uint8_t adc_channel_read_start_addr     = 0x20;
-
-const uint8_t adc_in0_high_limit_reg_addr     = 0x2A;
-const uint8_t adc_in0_low_limit_reg_addr      = 0x2B;
-const uint8_t adc_in1_high_limit_reg_addr     = 0x2C;
-const uint8_t adc_in1_low_limit_reg_addr      = 0x2D;
-const uint8_t adc_in2_high_limit_reg_addr     = 0x2E;
-const uint8_t adc_in2_low_limit_reg_addr      = 0x2F;
-const uint8_t adc_in3_high_limit_reg_addr     = 0x30;
-const uint8_t adc_in3_low_limit_reg_addr      = 0x31;
-const uint8_t adc_in4_high_limit_reg_addr     = 0x32;
-const uint8_t adc_in4_low_limit_reg_addr      = 0x33;
-const uint8_t adc_in5_high_limit_reg_addr     = 0x34;
-const uint8_t adc_in5_low_limit_reg_addr      = 0x35;
-const uint8_t adc_in6_high_limit_reg_addr     = 0x36;
-const uint8_t adc_in6_low_limit_reg_addr      = 0x37;
-const uint8_t adc_in7_high_limit_reg_addr     = 0x38;
-const uint8_t adc_in7_low_limit_reg_addr      = 0x39;
-
-const uint8_t adc_mfgid_reg_addr              = 0x3E;
-const uint8_t adc_revid_reg_addr              = 0x3F;
 
 
 /**
@@ -559,7 +527,7 @@ void setup(void)
   /**
   * Initialize the ADC 
   */
-  // init_adc();  //TODO might want to enable this
+  init_adc(); 
 
   /**
    * Print boot message and 
@@ -571,28 +539,26 @@ void setup(void)
   Serial.println("========= RESET ===========");
   Serial.println("===========================");
   
-  #if defined(ENABLE_LOGGING_ADC_RELATED)
-    Serial.println();
-    Serial.println();
+  Serial.println();
+  Serial.println();
 
-    Serial.println("MFGID SHOULD BE 1 and REVID SHOULD BE 9.");
-    Serial.print("ADC 1thru8 MFGID: ");
-    Serial.print(get_adc1thru8_mfgid());
-    Serial.print(" ... ");
-    Serial.print("ADC 9thru16 MFGID: ");
-    Serial.print(get_adc9thru16_mfgid());
-    Serial.println();
-    Serial.println();
-    
-    
-    Serial.print("ADC 1thru8 REVID: ");
-    Serial.print(get_adc1thru8_revid());
-    Serial.print(" ... ");
-    Serial.print("ADC 9thru16 REVID: ");
-    Serial.print(get_adc9thru16_revid());
-    Serial.println();
-    Serial.println();
-  #endif
+  Serial.println("ADC MFGID SHOULD BE 1 and REVID SHOULD BE 9.");
+  Serial.print("ADC 1thru8 MFGID: ");
+  Serial.print(get_adc1thru8_mfgid());
+  Serial.print(" ... ");
+  Serial.print("ADC 9thru16 MFGID: ");
+  Serial.print(get_adc9thru16_mfgid());
+  Serial.println();
+  Serial.println();
+  
+  
+  Serial.print("ADC 1thru8 REVID: ");
+  Serial.print(get_adc1thru8_revid());
+  Serial.print(" ... ");
+  Serial.print("ADC 9thru16 REVID: ");
+  Serial.print(get_adc9thru16_revid());
+  Serial.println();
+  Serial.println();
 
 
 } /* END SETUP ROUTINE*/
@@ -600,10 +566,12 @@ void setup(void)
 /**
  * @brief Main application loop
 */
-void loop(void) {
+void loop(void) 
+{
   uint16_t i=0;
 
-  if(Timer1msFlag == true) {
+  if(Timer1msFlag == true) 
+  {
     Timer1msFlag = false;
     
     if(fuse_current_ma >= 800) {
@@ -621,7 +589,8 @@ void loop(void) {
     }
     
     /* Condition where timeout occurred */
-    if(tick_1ms_counter >= timeout_1ms_ticks) {
+    if(tick_1ms_counter >= timeout_1ms_ticks) 
+    {
       
       disable_all_anlgsw();  
       #if defined(TIMER_LOGGING)
@@ -634,26 +603,31 @@ void loop(void) {
     }
   }
   
-  if(Timer50msFlag == true) {
+  if(Timer50msFlag == true) 
+  {
     Timer50msFlag = false;
   }
 
-  if(Timer500msFlag == true) {
+  if(Timer500msFlag == true) 
+  {
     Timer500msFlag = false;
   }
 
-  if(Timer1000msFlag == true) {
+  if(Timer1000msFlag == true) 
+  {
     Timer1000msFlag = false;
     (seconds_counter == 300000)?(seconds_counter = 0):(seconds_counter++);
     
-    if(digitalRead(LOCAL_HB_LED)) {
+    if(digitalRead(LOCAL_HB_LED)) 
+    {
       /**
        * Turn heartbeat LEDs OFF
       */
       digitalWrite(LOCAL_HB_LED,0);  
       clear_ioxpander_gpio(9); 
     }
-    else {
+    else 
+    {
       /**
        * Turn heartbeat LEDs ON
       */
@@ -661,6 +635,13 @@ void loop(void) {
       set_ioxpander_gpio(9); 
     }
 
+
+  }
+  
+  if(seconds_counter >= 3) 
+  {
+    seconds_counter = 0;    //Reset the seconds counter
+    
     /**
      * The fuse check algorithm
      * shan't run if fuse ignition is active 
@@ -668,22 +649,19 @@ void loop(void) {
     if(!fuse_ignition_active) 
     {   
       check_fuses(fuse_array,NUM_OF_FUSES);
-    }
-
-    #if defined(ENABLE_LOGGING_ADC_RELATED)
-        Serial.print("Fuse Array:  ");
-        for(i=0; i < 16; i++) {
-          Serial.print(fuse_array[i]);
+          
+      if(ENABLE_LOGGING_ADC_RELATED) 
+      {
+        Serial.print("Fuses [15:0]:  ");
+        for(i=16; i > 0; i--) 
+        {
+          Serial.print(fuse_array[i-1]);
         }
-        Serial.println('\n');
-    #endif
-
-    
+        Serial.println();
+      }
+    }
   }
-
-  if(seconds_counter >= 3) {
-    seconds_counter = 0;    //Reset the seconds counter
-    screen_evaluation();
-    display_screen();
-  }
+   
+  screen_evaluation();
+  display_screen();
 }  /*END MAIN LOOP*/

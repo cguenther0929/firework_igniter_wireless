@@ -3,6 +3,20 @@
 #define I2C_SDA         4
 #define I2C_SCL         5
 
+#define     ADC_CH1TO8_ADDRESS              0x1D
+#define     ADC_CH9TO16_ADDRESS             0x37
+#define     ADC_CONFIG_REG_ADDRESS          0x00
+#define     ADC_INT_STAT_REG_ADDR           0x01
+#define     ADC_CONV_RATE_REG_ADDR          0x07
+#define     ADC_CH_DISABLE_REG_ADDR         0x08
+#define     ADC_ADV_CONFIG_REG_ADDR         0x0B
+#define     ADC_BUSY_REG_ADDR               0x0C
+#define     ADC_CH_READ_START_ADDR          0x20
+
+#define     ADC_MFGID_REG_ADDR              0x3E
+#define     ADC_REVID_REG_ADDR              0x3F
+
+#define     FUSE_OK_DIG_THRESHOLD           500
 
 /**
  * @brief Print uint8_t binary representation of a number
@@ -175,7 +189,7 @@ bool adc128d_ch1to8_okay ( void ) {
     uint8_t sensor_value    = 0x00;
 
     Wire.beginTransmission(ADC_CH1TO8_ADDRESS); 
-    Wire.write(adc_busy_register_addr);        
+    Wire.write(ADC_BUSY_REG_ADDR);        
     Wire.endTransmission();
 
     Wire.requestFrom(ADC_CH1TO8_ADDRESS, 1);    // Request 1 byte from the address   
@@ -199,7 +213,7 @@ bool adc128d_ch9to16_okay ( void ) {
     uint8_t sensor_value    = 0x00;
 
     Wire.beginTransmission(ADC_CH9TO16_ADDRESS); 
-    Wire.write(adc_busy_register_addr);        
+    Wire.write(ADC_BUSY_REG_ADDR);        
     Wire.endTransmission();
 
 
@@ -233,9 +247,10 @@ void check_fuses (int ary[], uint8_t count) {
     uint8_t i                           = 0x00;
     uint16_t adc_raw_value              = 0x0000;
     
-    #if defined(ENABLE_LOGGING_ADC_RELATED)
+    if(ENABLE_LOGGING_ADC_RELATED)
+    {
         Serial.println("-- CHECKING FUSES --");
-    #endif
+    }
     
     /**
     * Set the fuse current 
@@ -243,24 +258,26 @@ void check_fuses (int ary[], uint8_t count) {
     * fuses can be checked without 
     * setting off fireworks.
     */
-    set_fuse_current_ma(100);
+    set_fuse_current_ma(175);
 
 
     /**
      * Make sure the ADCs are ready
-     * If the ADCs are not ready, return
-     * and indicate all fuses are bad ...
      */
-    if (!adc128d_ch1to8_okay()) {        // Situation where we're okay
-        #if defined(ENABLE_LOGGING_ADC_RELATED)
+    if (!adc128d_ch1to8_okay()) 
+    {        
+        if(ENABLE_LOGGING_ADC_RELATED)
+        {
             Serial.println("ADC CH1-8 NOTOK.");
-        #endif
+        }
     }
 
-    if (!adc128d_ch9to16_okay()) {       // Situation where we're okay
-        #if defined(ENABLE_LOGGING_ADC_RELATED)
+    if (!adc128d_ch9to16_okay()) 
+    {  
+        if(ENABLE_LOGGING_ADC_RELATED)
+        {
             Serial.println("ADC CH9-16 NOTOK.");
-        #endif
+        }
     }
 
 
@@ -274,14 +291,20 @@ void check_fuses (int ary[], uint8_t count) {
     */
     for (i=1; i <= count; i++) {
         set_anlgsw(i);
+        delay(125);
+
         /* Now read the associated value from the ADC */
         adc_raw_value = get_adc_value(i);
             
-        #if defined(ENABLE_LOGGING_ADC_RELATED)
-            Serial.print("Raw analog value:  ");
+        disable_all_anlgsw();
+        
+        if(ENABLE_LOGGING_ADC_RELATED)
+        {
+            Serial.print("CH ");
+            Serial.print(i);
+            Serial.print(" -- Raw analog value:  ");
             Serial.println(adc_raw_value);
-        #endif
-            
+        }
             
         if (adc_raw_value > FUSE_OK_DIG_THRESHOLD){
             ary[i-1] = 1;
@@ -321,6 +344,11 @@ void init_i2c ( void )
     //         | SCL PIN (IO NUMBER NOT PIN NUMBER) 
     //         |  |
     Wire.begin(4, 5);
+
+    //          Frequency of clock speed in Hz
+    //             |
+    Wire.setClock(1000);
+    // Wire.setClock(10000);
 }
 
 /**
@@ -332,7 +360,7 @@ void init_i2c ( void )
 void init_adc ( void ) {
     
     /**
-     * PROGRAM ADVANCED CONFIGURATION REGISTER
+     * PROGRAM ADVANCED CONFIGURATION REGISTER (ADDRESS 0x0B)
      * 
      * The device needs to be placed into mode 1.
      * Mode 1 defines that all channels are ADC inputs. 
@@ -341,6 +369,7 @@ void init_adc ( void ) {
      * for taking a temperature measurement (see page 25 in the 
      * datasheet for more informaiton).
      *  
+     * Here is a breakdown of that register (p24/49)
      *                                         
      *     BIT 7 (RESERVED)                                    
      *       |     BIT 6 (RESERVED)                              
@@ -351,7 +380,7 @@ void init_adc ( void ) {
      *       |     |     |     |     |     |     BIT 1 (MODE SELECT [0])     
      *       |     |     |     |     |     |     |     BIT 0 (EXTERNAL REFERENCE ENABLE) 
      *       |     |     |     |     |     |     |     |
-     *   0b  0     0     0     0     0     0     1     0
+     *   0b  0     0     0     0     0     0     1     0    ===   0x02
      *                                      
      *       ┌───────┬─────────┬──────┐         
      *       │MODE[1]│ MODE[0] │ MODE │         
@@ -362,45 +391,24 @@ void init_adc ( void ) {
      *       │   1   │    1    │ MODE3│         
      *       └───────┴─────────┴──────┘         
      *                                 
-     *   The mode shall be MODE 1, therefore, the 
-     *      VALUE = 0x02
+     * The ADC shall operate in mode one, which means all channels will 
+     * be ADC inputs
      */
     Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_adv_config_reg_addr);        
+    Wire.write(ADC_ADV_CONFIG_REG_ADDR);        
     Wire.write(0x02);                   // Enable the device and clear interrupts 
     Wire.endTransmission();
     
     Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_adv_config_reg_addr);        
+    Wire.write(ADC_ADV_CONFIG_REG_ADDR);        
     Wire.write(0x02);                   // Enable the device and clear interrupts 
     Wire.endTransmission();
 
     /**
-     * For good measure, we'll write 
-     * to the channel disable register to 
-     * assure that all channels are enabled, 
-     * although they are supposed to be enabled
-     * by default.
-     * 
-     * According to the quick start in the datasheet, 
-     * this step is to be performed after programming
-     * the conversion rate register.
-     */
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_ch_disable_reg_addr);        
-    Wire.write(0x00);                   // A value of one disables the channel 
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_ch_disable_reg_addr);       
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-
-    /**
-     * PROGRAM CONVERSION RATE REGISTER
+     * PROGRAM CONVERSION RATE REGISTER (ADDRESS 0x07)
      * 
      * The conversion rate can only be modified when 
-     * the chip is disabled.
+     * the chip is disabled!!
      * 
      *     BIT 7 (RESERVED)                                    
      *       |     BIT 6 (RESERVED)                              
@@ -411,7 +419,7 @@ void init_adc ( void ) {
      *       |     |     |     |     |     |     BIT 1 (RESERVED)     
      *       |     |     |     |     |     |     |     BIT 0 (CONVERSION RATE) 
      *       |     |     |     |     |     |     |     |
-     *   0b  0     0     0     0     0     0     0     1
+     *   0b  0     0     0     0     0     0     0     1    ===   0x01
      *   
      *    CONVERSION RATE BIT = 0 = Low Power Conversion Mode 
      *    CONVERSION RATE BIT = 1 = Continuous Conversion Mode
@@ -419,218 +427,24 @@ void init_adc ( void ) {
      *                  when the device is in shutdown mode, 
      *                  that is, when the 'START' bit of the "CONFIGURATION REGISTER' is 0 
      * 
-     * VALUE = 0x01
-     * 
      */
     Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_conv_rate_reg_addr);        
+    Wire.write(ADC_CONV_RATE_REG_ADDR);        
     Wire.write(0x01);                   // Request continuous conversion rate
     Wire.endTransmission();
     
     Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_conv_rate_reg_addr);        
+    Wire.write(ADC_CONV_RATE_REG_ADDR);        
     Wire.write(0x01);                   
     Wire.endTransmission();
 
 
-    /**
-     * CONFIGURATION REGISTER TO START DEVICE
-     *                                         
-     *     BIT 7 (INITIALIZATION)                                    
-     *       |     BIT 6 (RESERVED)                              
-     *       |     |     BIT 5 (RESERVED)                       
-     *       |     |     |     BIT 4 (RESERVED)               
-     *       |     |     |     |     BIT 3 (#INT_CLEAR)            
-     *       |     |     |     |     |     BIT 2 (RESERVED)       
-     *       |     |     |     |     |     |     BIT 1 (#INT_ENABLE)     
-     *       |     |     |     |     |     |     |     BIT 0 (START) 
-     *       |     |     |     |     |     |     |     |
-     *   0b  0     0     0     0     0     0     0     1
-     * 
-     *   VALUE = 0x01
-     * 
-     * 
-     */
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_config_reg_addr);        
-    Wire.write(0x1);                   // Enable the device and clear interrupts 
-    Wire.endTransmission();
     
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_config_reg_addr);       
-    Wire.write(0x01);                   
-    Wire.endTransmission();
-
     
     /**
-     * PROGRAM LIMIT REGISTERS
+     * CONFIGURATION REGISTER TO CLEAR INIT BIT (ADDRESS 0x00)
      * 
-     * 
-     * 
-     */
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in0_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in0_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in1_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in1_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in2_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in2_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in3_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in3_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in4_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in4_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in5_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in5_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in6_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in6_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in7_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_in7_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in0_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in0_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in1_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in1_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in2_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in2_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in3_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in3_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in4_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in4_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in5_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in5_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in6_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in6_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in7_high_limit_reg_addr);        
-    Wire.write(0xFF);                   
-    Wire.endTransmission();
-    
-    Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_in7_low_limit_reg_addr);        
-    Wire.write(0x00);                   
-    Wire.endTransmission();
-    
-    /**
-     * CONFIGURATION REGISTER TO CLEAR INIT BIT
+     * Start device and clear interrupt register
      * 
      *     BIT 7 (INITIALIZATION)                                    
      *       |     BIT 6 (RESERVED)                              
@@ -641,19 +455,17 @@ void init_adc ( void ) {
      *       |     |     |     |     |     |     BIT 1 (#INT_ENABLE)     
      *       |     |     |     |     |     |     |     BIT 0 (START) 
      *       |     |     |     |     |     |     |     |
-     *   0b  0     0     0     0     1     0     0     0
-     * 
-     *   VALUE = 0x05
+     *   0b  0     0     0     0     1     0     0     1    === 0x05
      * 
      * 
      */
     Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_config_reg_addr);        
+    Wire.write(ADC_CONFIG_REG_ADDRESS);        
     Wire.write(0x05);                   // Enable the device and clear interrupts 
     Wire.endTransmission();
     
     Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_config_reg_addr);       
+    Wire.write(ADC_CONFIG_REG_ADDRESS);       
     Wire.write(0x05);                   
     Wire.endTransmission();
 
@@ -674,17 +486,18 @@ void init_adc ( void ) {
  * 
 */
 uint16_t get_adc_value (uint8_t adc_ch1thru16) {
-    uint8_t adc_zero_based_ch_reg_addr      = 0x00;
-    uint8_t zero_based_adc_ch               = 0x00;
-    uint8_t i2c_byte_ctr                    = 0x00;
-    uint8_t adc_lower_nibble                = 0x00;
-    uint8_t adc_upper_nibble                = 0x00;
-    uint16_t address                         = 0x00;
-    uint16_t adc_raw_value                  = 0x0000;
+    uint8_t     adc_zero_based_ch_reg_addr      = 0x00;
+    uint8_t     zero_based_adc_ch               = 0x00;
+    uint8_t     i2c_byte_ctr                    = 0x00;
+    uint8_t     adc_lower_nibble                = 0x00;
+    uint8_t     adc_upper_nibble                = 0x00;
+    uint16_t    address                         = 0x0000;
+    uint16_t    adc_raw_value                   = 0x0000;
 
-    #if defined(ENABLE_LOGGING)
-        Serial.println("Getting ADC value.");
-    #endif
+    // if(ENABLE_LOGGING_ADC_RELATED) 
+    // {
+    //     Serial.println("Getting ADC value.");
+    // }
 
     /**
      * The number can't be negative 
@@ -711,16 +524,10 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
      * for the IC, the data 
      * registers start at 0x20
      */
-    adc_zero_based_ch_reg_addr  = (uint8_t)(adc_channel_read_start_addr + zero_based_adc_ch);
+      //                                 Start address is 0x20     
+      //                                      |
+    adc_zero_based_ch_reg_addr  = (uint8_t)(ADC_CH_READ_START_ADDR + zero_based_adc_ch);
 
-    #if defined(ENABLE_LOGGING_ADC_RELATED)
-        Serial.print("ADC 1thru8 INT STAT: ");
-        print8b_bin(get_adc1thru8_int_stat_reg());
-        Serial.println();
-        Serial.print("ADC 9thru16 INT STAT: ");
-        print8b_bin(get_adc9thru16_int_stat_reg());
-        Serial.println();
-    #endif
     /** 
      * Set the address of the internal register
      */
@@ -740,8 +547,7 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
     
     while(Wire.available() && i2c_byte_ctr < 2) {
         if(i2c_byte_ctr == 0) {
-            adc_upper_nibble = Wire.read() & 0x0F; //Only want bits [11:8] here.
-            // adc_upper_nibble = Wire.read(); //Only want bits [11:8] here. //TODO: can remove this line that was added for testing
+            adc_upper_nibble = Wire.read() & 0x0F; //Only want lower four bits here.
         }
         else {
             adc_lower_nibble = Wire.read();
@@ -753,16 +559,16 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
     Wire.endTransmission();
     
     
-    #if defined(ENABLE_LOGGING_ADC_RELATED)
-        Serial.print("Val of while ctr: ");
-        Serial.println(i2c_byte_ctr);
-        Serial.print("ADC Up: ");
-        Serial.print(adc_upper_nibble);
-        Serial.println();
-        Serial.print(" ... ADC Low: ");
-        Serial.print(adc_lower_nibble);
-        Serial.println();
-    #endif
+    // if(ENABLE_LOGGING_ADC_RELATED)
+    // {
+    //     Serial.print("BYTES PROCESSED: ");
+    //     Serial.println(i2c_byte_ctr);
+    //     Serial.print("ADC Up: ");
+    //     Serial.print(adc_upper_nibble);
+    //     Serial.print(" ... ADC Low: ");
+    //     Serial.print(adc_lower_nibble);
+    //     Serial.println();
+    // }
     
     adc_raw_value = (uint16_t)(adc_upper_nibble << 8 ) | (adc_lower_nibble);
     
@@ -792,7 +598,7 @@ uint8_t get_adc1thru8_int_stat_reg ( void ){
      * Set the address of the internal register
      */
     Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_int_stat_reg_addr);        
+    Wire.write(ADC_INT_STAT_REG_ADDR);        
     Wire.endTransmission();
 
     /**
@@ -829,7 +635,7 @@ uint8_t get_adc9thru16_int_stat_reg ( void ){
      * Set the address of the internal register
      */
     Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_int_stat_reg_addr);        
+    Wire.write(ADC_INT_STAT_REG_ADDR);        
     Wire.endTransmission();
 
 
@@ -862,7 +668,7 @@ uint8_t get_adc1thru8_mfgid ( void ) {
      * Set the address of the internal register
      */
     Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_mfgid_reg_addr);        
+    Wire.write(ADC_MFGID_REG_ADDR);        
     Wire.endTransmission();
 
 
@@ -892,7 +698,7 @@ uint8_t get_adc9thru16_mfgid ( void ) {
      * Set the address of the internal register
      */
     Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_mfgid_reg_addr);        
+    Wire.write(ADC_MFGID_REG_ADDR);        
     Wire.endTransmission();
 
     /**
@@ -922,7 +728,7 @@ uint8_t get_adc1thru8_revid ( void ) {
      * Set the address of the internal register
      */
     Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    Wire.write(adc_revid_reg_addr);        
+    Wire.write(ADC_REVID_REG_ADDR);        
     Wire.endTransmission();
 
     /**
@@ -952,7 +758,7 @@ uint8_t get_adc9thru16_revid ( void ) {
      * Set the address of the internal register
      */
     Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    Wire.write(adc_revid_reg_addr);        
+    Wire.write(ADC_REVID_REG_ADDR);        
     Wire.endTransmission();
 
     /**
@@ -1155,7 +961,7 @@ bool set_anlgsw (uint8_t number) {
         shift_value = number - 1;
     }
 
-    (number > 8)?(address = anlg_sw_ch9to16_address):(address = anlg_sw_ch1to8_address);
+    (number > 8)?(address = ANLG_SW_CH9to16_ADDRESS):(address = ANLG_SW_CH1to8_ADDRESS);
 
     /* Determine the anlgsw_val */
     anlgsw_val = (0b00000001) << (shift_value);
@@ -1178,12 +984,12 @@ bool set_anlgsw (uint8_t number) {
 }
 
 bool disable_all_anlgsw ( void ) {
-    Wire.beginTransmission(anlg_sw_ch1to8_address); 
+    Wire.beginTransmission(ANLG_SW_CH1to8_ADDRESS); 
     Wire.write(0x00);        
     Wire.write(0x00);        
     Wire.endTransmission();
     
-    Wire.beginTransmission(anlg_sw_ch9to16_address); 
+    Wire.beginTransmission(ANLG_SW_CH9to16_ADDRESS); 
     Wire.write(0x00);        
     Wire.write(0x00);        
     Wire.endTransmission();
