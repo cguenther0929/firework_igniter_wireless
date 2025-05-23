@@ -19,22 +19,21 @@
 #include <Wire.h>
 
 /**
- * Uncomment the following 
- * if you wish to have logging 
- * data printed to the screen
+ * Set this to "true" to 
+ * enable logging
  */
-// #define ENABLE_LOGGING
+#define ENABLE_LOGGING            false
 
 /**
- * Uncomment the following 
+ * Set this to "true"
  * if you wish to have logging 
  * data (related to timer functions)
  * printed to the screen
  */
-// #define TIMER_LOGGING
+#define TIMER_LOGGING             false
 
 /**
- * Uncomment the following 
+ * Set this to "true" 
  * if you wish to to see logging 
  * data as it pertains to the fuse
  * array
@@ -62,8 +61,6 @@ bool fuse_ignition_active           = false;
 #define EXT_RED_LED     10  
 #define EXT_YEL_LED     11
 
-
-
 /**
  * Volts per bit for
  * the eight bit DAC.
@@ -81,10 +78,10 @@ uint16_t fuse_current_ma        = FUSE_CURRENT_MA_MIN; //Value is in mA
 /**
  * Define version string constants
 */
-String version_string = "";
-// String SW_VERSION_STRING = "0.3.3.a";  //TODO remove this line?
-String SW_VERSION_STRING = "0.3.4.a";
-String HW_VERSION_STRING = "A03";
+String version_string     = "";
+String SW_VERSION_STRING  = "0.3.4.a";
+String HW_VERSION_STRING  = "A03";
+String fuse_health        = "";
 
 /**
  * Constants (slave addresses)
@@ -108,22 +105,13 @@ String HW_VERSION_STRING = "A03";
  * The Arduino I2C instance will left shift and tack
  * on the appropriate R/W bit for us.  
 */
-#define   io_expander_7b_address_p0p7         0x68
-#define   io_expander_7b_address_o8o15        0x58
-
-#define   ANLG_SW_CH1to8_ADDRESS              0x4C
-#define   ANLG_SW_CH9to16_ADDRESS             0x4E
 
 
-
-#define   dac_address                         0x0D
 
 // The EEPROM is not being used, and there is a conflict
 // const uint16_t eeprom_address                 = 0x50; 
 
-
-
-
+//TODO move or update this note
 /**
  * The address of the display,
  * as posted in silk on the back of 
@@ -152,9 +140,9 @@ const char* PARAM_INPUT_2 = "state";
 */
 U8X8_SH1106_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE);
 uint8_t current_oled_row        = 0;
-const uint8_t oled_column       = 1;
-const uint8_t first_row         = 0;
-const uint8_t lcd_row_spacing   = 2;
+const uint8_t OLED_COLUMN       = 0;
+const uint8_t FIRST_ROW         = 0;
+const uint8_t LCD_ROW_SPACING   = 2;
 
 /**
  * Webserver object
@@ -174,7 +162,8 @@ enum state {
 
 enum screen {
   SCREEN_1,
-  SCREEN_2
+  SCREEN_2,
+  SCREEN_3
 };
 
 /**
@@ -353,9 +342,10 @@ void setup(void)
   current_state = STATE_1;
   current_screen = SCREEN_1;
 
-  #if defined(ENABLE_LOGGING)
+  if(ENABLE_LOGGING){
     Serial.println("Module just rebooted.");
-  #endif
+
+  }
 
   /**
    * Initialize I2C
@@ -372,10 +362,11 @@ void setup(void)
   /**
    * @brief setup wifi access point
   */
-  #if defined(ENABLE_LOGGING)
+  if(ENABLE_LOGGING) 
+  {
     Serial.println("Setting AP (Access Point)…");
-  #endif
-  
+  }
+
   /**
    * Remove the password parameter, 
    * if the AP is to be open 
@@ -385,20 +376,23 @@ void setup(void)
   IPAddress IP = WiFi.softAPIP();
   assigned_ip_str = IP;
   
-  #if defined(ENABLE_LOGGING)
+  if(ENABLE_LOGGING)
+  {
     Serial.print("AP IP address: ");
     Serial.println(IP);
-  #endif
+  }
+
 
   /**
    * Print the IP address
    * of the ESP8266 to the 
    * serial terminal
    */ 
-  #if defined(ENABLE_LOGGING)
+  if(ENABLE_LOGGING)
+  {
     Serial.print("Local IP address: ");
     Serial.println(WiFi.localIP());
-  #endif
+  }
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -414,12 +408,13 @@ void setup(void)
     uint8_t input_message1_value = 0;
     uint8_t input_message2_value = 0;
 
-  #if defined(ENABLE_LOGGING)
+  if(ENABLE_LOGGING) 
+  {
     Serial.print("GPIO: ");
     Serial.print(input_message1_value);
     Serial.print(" - Set to: ");
     Serial.println(input_message2_value);
-  #endif
+  }
 
     /**
      * GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
@@ -486,9 +481,10 @@ void setup(void)
         fuse_ignition_active = true;
       }
 
-        #if defined(ENABLE_LOGGING)
+        if(ENABLE_LOGGING)
+        {
           Serial.println("Timeout timer started.");
-        #endif
+        }
         timer_running = true;
 
       }
@@ -499,12 +495,13 @@ void setup(void)
       inputMessage2 = "Invalid request";
     }
     
-    #if defined(ENABLE_LOGGING)
+    if(ENABLE_LOGGING)
+    {
       Serial.print("GPIO: ");
       Serial.print(input_message1_value);
       Serial.print(" - Set to: ");
       Serial.println(input_message2_value);
-    #endif
+    }
 
     request->send(200, "text/plain", "OK");
   });
@@ -593,9 +590,10 @@ void loop(void)
     {
       
       disable_all_anlgsw();  
-      #if defined(TIMER_LOGGING)
+      if(TIMER_LOGGING)
+      {
         Serial.println("Time expired");
-      #endif
+      }
       
       tick_1ms_counter = 0;
       fuse_ignition_active = false;
@@ -635,7 +633,6 @@ void loop(void)
       set_ioxpander_gpio(9); 
     }
 
-
   }
   
   if(seconds_counter >= 3) 
@@ -660,8 +657,8 @@ void loop(void)
         Serial.println();
       }
     }
+    screen_evaluation();
+    display_screen();
   }
    
-  screen_evaluation();
-  display_screen();
 }  /*END MAIN LOOP*/

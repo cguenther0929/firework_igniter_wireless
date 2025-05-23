@@ -51,4 +51,4 @@ The ESP12 Test Board utilizes a bare ESP8266 WiFi SOM.  For proper compilation, 
 
 * 0.3.3.a -- A timing issue related to fuse ignition was corrected. Said issue was that the dwell time for how long a fuse igniter was energized was too short due to the fuse checking routine.  The long-term solution will be to put the fuse check routine inside a conditional so that it doesn't run when a fuse is being ignited.  In the interim and in this version, however, the fuse checking routine has been disabled. 
 
-* 0.3.4.a -- TBD 5/20/25
+* 0.3.4.a -- The fuse checking routine is not in perfect working order, but this version is being tagged since the ADCs appear to be working decent. Also, there has been enough changes to justify a tag.   

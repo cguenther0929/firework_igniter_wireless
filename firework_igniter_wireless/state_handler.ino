@@ -24,6 +24,11 @@ void screen_evaluation( void ) {
         break;
 
         case SCREEN_2:
+            current_screen = SCREEN_3;
+
+        break;
+        
+        case SCREEN_3:
             current_screen = SCREEN_1;
 
         break;
@@ -36,16 +41,17 @@ void screen_evaluation( void ) {
 void StateEvaluation( void ) {      
 
     switch (current_state) {
-        
+        //TODO a lot is commented out below -- do we need to remove?
         /**
          * @brief STATE EVALUATE SLEEP BIT
          * 
          */
         case STATE_1:
 
-            #if defined(ENABLE_LOGGING)
+            if(ENABLE_LOGGING) 
+            {
                 Serial.println("\tIn Sate_1.\n");
-            #endif
+            }
             /**
              * If sleep bit is set, 
              * transition to STATE_6
@@ -102,10 +108,7 @@ void StateEvaluation( void ) {
          * 
          */
         case STATE_4:
-            
-
             current_state = STATE_5;
-
         break;
 
         /**
@@ -114,9 +117,6 @@ void StateEvaluation( void ) {
          */
         case STATE_5:
         {
-
-
-
         }
         break;
 
