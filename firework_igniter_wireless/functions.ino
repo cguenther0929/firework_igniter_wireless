@@ -67,7 +67,7 @@
  * ADC raw value shall be above 
  * this to consider a fuse being okay.  
  */
-#define   FUSE_OK_DIG_THRESHOLD                 125
+#define   FUSE_OK_DIG_THRESHOLD                 500
 
 /**
  * @brief Print uint8_t binary representation of a number
@@ -125,19 +125,23 @@ uint8_t display_screen ( void )
             u8x8.clear();
             current_oled_row = 0; 
             u8x8.setCursor(OLED_COLUMN,FIRST_ROW);
-            u8x8.print("FUSE (mA)");
+            u8x8.print("CURRENT (mA)");
             current_oled_row += LCD_ROW_SPACING; 
             u8x8.setCursor(OLED_COLUMN,current_oled_row);
             u8x8.print(String(fuse_current_ma));
-            current_oled_row += LCD_ROW_SPACING; 
-            u8x8.setCursor(OLED_COLUMN,current_oled_row);
-            u8x8.print(String("--CJG--"));
         break;
         
         case SCREEN_3:  
             u8x8.clear();
             current_oled_row = 0; 
             u8x8.setCursor(OLED_COLUMN,FIRST_ROW);
+            
+            u8x8.print("Chk Count:");
+            u8x8.print(fuse_check_counter);
+            current_oled_row += LCD_ROW_SPACING; 
+            u8x8.setCursor(OLED_COLUMN,current_oled_row);
+            
+
             u8x8.print("Fuse health:");
             current_oled_row += LCD_ROW_SPACING; 
             u8x8.setCursor(OLED_COLUMN,current_oled_row);
@@ -151,9 +155,12 @@ uint8_t display_screen ( void )
             {
                 fuse_health += String(fuse_array[i-1]);
             }
-
+            
             u8x8.print(fuse_health);
             current_oled_row += LCD_ROW_SPACING; 
+            
+
+
             
             u8x8.setCursor(OLED_COLUMN,current_oled_row);
             u8x8.print(String("-CJG IGNITER-"));
@@ -284,11 +291,6 @@ bool adc128d_ch1to8_okay ( void ) {
     sensor_value = Wire.read();
     Wire.endTransmission();
 
-    //TODO can we remove this stuff?
-    // if(sensor_value & 0x01 || (sensor_value >> 1 & 0x01)) {
-    //     return false;
-    // }
-    
     if((sensor_value & 0x03) > 0) {
         return false;
     }
@@ -314,10 +316,6 @@ bool adc128d_ch9to16_okay ( void ) {
     sensor_value = Wire.read();
     Wire.endTransmission();
     
-    //TODO remove this stuff?
-    // if((sensor_value & 0x01) || (sensor_value >> 1 & 0x01)) {
-    //     return false;
-    // }
     if((sensor_value & 0x03) > 0) {
         return false;
     }
@@ -344,10 +342,6 @@ void check_fuses (int ary[], uint8_t count) {
     uint8_t i                           = 0x00;
     uint16_t adc_raw_value              = 0x0000;
     
-    if(ENABLE_LOGGING_ADC_RELATED)
-    {
-        Serial.println("-- CHECKING FUSES --");
-    }
     
     /**
     * Set the fuse current 
@@ -358,58 +352,14 @@ void check_fuses (int ary[], uint8_t count) {
     * Keep this low since we're going
     * to turn them all on
     */
-    set_fuse_current_ma(50);
+    set_fuse_current_ma(100);       //Value is in mA
 
-            //TODO can we remove the following
-    /**
-     * One-by-one enable 
-     * the fuse and check the 
-     * feedback to see if the fuse is valid
-     * This is not zero-based, and so the
-     * functions expect 1 through 16 as
-     * input arguments
-     * 
-     * Turn on all channels
-    */
-    // for (i=1; i <= count; i++) {
-    //     set_anlgsw(i);
-    //     delay(200);
-
-    //     /* Now read the associated value from the ADC */
-    //     adc_raw_value = get_adc_value(i);
-            
-    //     disable_all_anlgsw();
-        
-    //     if(ENABLE_LOGGING_ADC_RELATED)
-    //     {
-    //         Serial.print("CH ");
-    //         Serial.print(i);
-    //         Serial.print(" -- Raw analog value:  ");
-    //         Serial.println(adc_raw_value);
-    //     }
-            
-    //     if (adc_raw_value > FUSE_OK_DIG_THRESHOLD){
-    //         ary[i-1] = 1;
-    //     }
-    //     else {
-    //         ary[i-1] = 0;
-    //     }
-    // }
-    
     /**
      * Turn all fuses on before taking readings
      */
     enable_all_anlgsw();
-    delay(800);
+    delay(200);
     
-    /**
-     * Take measurements from the ADC
-     */
-    // one_shot_reading_adc128d_ch1to8();
-    
-    // one_shot_reading_adc128d_ch9to16();
-    // delay(100);
-
     /**
      * Stop the ADC
      */
@@ -423,7 +373,7 @@ void check_fuses (int ary[], uint8_t count) {
     Wire.write(0x00);                   
     Wire.endTransmission();
     
-    delay(100);
+    delay(10);
 
     /**
      * Check to see if the ADCs are okay
@@ -450,7 +400,15 @@ void check_fuses (int ary[], uint8_t count) {
         
         if(ENABLE_LOGGING_ADC_RELATED)
         {
-            Serial.print("CH ");
+            if(i<10)
+            {
+                Serial.print(" CH ");
+            }
+            else 
+            {
+                Serial.print("CH ");
+            }
+            
             Serial.print(i);
             Serial.print(" -- Raw analog value:  ");
             Serial.println(adc_raw_value);
@@ -539,16 +497,10 @@ void init_adc ( void ) {
      * before writing to the advanced configuration 
      * register.  
      * 
-     * Calling functions adc128d_ch??to??_okay() to check the busy bit 
-     * causes the system to crash
+     * Calling functions "ADC OKAY" functions will 
+     * cause the applications to crash 
      */
     delay(300);
-    // while(!adc128d_ch1to8_okay())
-    // {
-    // }
-    // while(!adc128d_ch9to16_okay())
-    // {
-    // }
     
     
     /**
@@ -866,33 +818,6 @@ void init_adc ( void ) {
     adc_value = Wire.read();
     Wire.endTransmission();
     
-    //TODO remove the following?
-    // /**
-    //  * WRITE TO THE CONFIGURATION REGISTER TO CLEAR THE INIT BIT (ADDRESS 0x00)
-    //  * 
-    //  *     BIT 7 (INITIALIZATION)                                    
-    //  *       |     BIT 6 (RESERVED)                              
-    //  *       |     |     BIT 5 (RESERVED)                       
-    //  *       |     |     |     BIT 4 (RESERVED)               
-    //  *       |     |     |     |     BIT 3 (#INT_CLEAR)            
-    //  *       |     |     |     |     |     BIT 2 (RESERVED)       
-    //  *       |     |     |     |     |     |     BIT 1 (#INT_ENABLE)     
-    //  *       |     |     |     |     |     |     |     BIT 0 (START) 
-    //  *       |     |     |     |     |     |     |     |
-    //  *   0b  0     0     0     0     1     0     0     1    === 0x09
-    //  * 
-    //  * 
-    //  */
-    // Wire.beginTransmission(ADC_CH1TO8_ADDRESS);
-    // Wire.write(ADC_CONFIG_REG_ADDRESS);        
-    // Wire.write(0x09);                   // Enable the device and clear interrupts 
-    // Wire.endTransmission();
-    
-    // Wire.beginTransmission(ADC_CH9TO16_ADDRESS);
-    // Wire.write(ADC_CONFIG_REG_ADDRESS);       
-    // Wire.write(0x09);                   
-    // Wire.endTransmission();
-    
 }
 
 /**
@@ -917,11 +842,6 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
     uint8_t     adc_upper_nibble                = 0x00;
     uint16_t    address                         = 0x0000;
     uint16_t    adc_raw_value                   = 0x0000;
-
-    // if(ENABLE_LOGGING_ADC_RELATED) 
-    // {
-    //     Serial.println("Getting ADC value.");
-    // }
 
     /**
      * The number can't be negative 
@@ -948,8 +868,6 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
      * for the IC, the data 
      * registers start at 0x20
      */
-      //                                 Start address is 0x20     
-      //                                      |
     adc_zero_based_ch_reg_addr  = (uint8_t)(ADC_CH_READ_START_ADDR + zero_based_adc_ch);
 
     /** 
@@ -981,18 +899,6 @@ uint16_t get_adc_value (uint8_t adc_ch1thru16) {
     }
     
     Wire.endTransmission();
-    
-    
-    // if(ENABLE_LOGGING_ADC_RELATED)
-    // {
-    //     Serial.print("BYTES PROCESSED: ");
-    //     Serial.println(i2c_byte_ctr);
-    //     Serial.print("ADC Up: ");
-    //     Serial.print(adc_upper_nibble);
-    //     Serial.print(" ... ADC Low: ");
-    //     Serial.print(adc_lower_nibble);
-    //     Serial.println();
-    // }
     
     adc_raw_value = (uint16_t)((adc_upper_nibble << 8 ) | (adc_lower_nibble)) ;
     

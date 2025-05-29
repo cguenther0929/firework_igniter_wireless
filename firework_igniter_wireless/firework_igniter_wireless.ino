@@ -7,8 +7,6 @@
 */
 /**
  * This is the main source file for the ESP8266 WiFi SOM
- * TODO Sometimes fuses won't come on at all, and we need to fix that.  Send request twice?
- * TODO need to add a display that shows fuse health
 */
 #include <ESPAsyncWebServer.h>
 #include <ESPAsyncTCP.h>
@@ -52,14 +50,14 @@ bool fuse_ignition_active           = false;
 #define LOCAL_HB_LED    2
 
 /* Define 8266 IO */
-#define BAT_MON         A0
-#define PBTN_1          12
-#define PBTN_2          13
+#define BAT_MON             A0
+#define PBTN_1              12
+#define PBTN_2              13
 
 /* Define GPIO Expander IO */
-#define EXT_GRN_LED     9   //Represents the IO number
-#define EXT_RED_LED     10  
-#define EXT_YEL_LED     11
+#define EXT_GRN_LED         9   //Represents the IO number
+#define EXT_RED_LED         10  
+#define EXT_YEL_LED         11
 
 /**
  * Volts per bit for
@@ -73,13 +71,14 @@ const float MV_PER_BIT        = 12.9412;   // 3V3/255 steps for the DAC
 #define FUSE_CURRENT_MA_MIN     150
 #define FUSE_CURRENT_MA_MAX     800
 
-uint16_t fuse_current_ma        = FUSE_CURRENT_MA_MIN; //Value is in mA
+uint16_t fuse_current_ma        = FUSE_CURRENT_MA_MIN;  // Value is in mA
+uint8_t fuse_check_counter      = 0;                    // To keep track of the number of time fuse validity has been checked. 
 
 /**
  * Define version string constants
 */
 String version_string     = "";
-String SW_VERSION_STRING  = "0.3.4.a";
+String SW_VERSION_STRING  = "0.3.4.b";
 String HW_VERSION_STRING  = "A03";
 String fuse_health        = "";
 
@@ -111,12 +110,11 @@ String fuse_health        = "";
 // The EEPROM is not being used, and there is a conflict
 // const uint16_t eeprom_address                 = 0x50; 
 
-//TODO move or update this note
 /**
  * The address of the display,
  * as posted in silk on the back of 
  * the unit, is 0x78 or 
- * 0b_111_1000
+ * 0b_0111_1000
 */
 
 /**
@@ -124,7 +122,7 @@ String fuse_health        = "";
  * access point
 */
 const char* ssid          = "firework_igniter";
-const char* password      = "123456789"; //Minimum of eight characters here
+const char* password      = "123456789";          //Minimum of eight characters here
 IPAddress assigned_ip_str;
 
 /**
@@ -219,7 +217,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     .switch input {display: none}
     .slider {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 6px}
     .slider:before {position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 3px}
-    input:checked+.slider {background-color: #b30000}
+    input:checked+.slider {background-color:rgb(3, 122, 27)}
     input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
   </style>
 </head>
@@ -227,8 +225,14 @@ const char index_html[] PROGMEM = R"rawliteral(
   %HTMLPLACEHOLDER%
 <script>function toggleCheckbox(element) {
   var xhr = new XMLHttpRequest();
-  if(element.checked){ xhr.open("GET", "/update?output="+element.id+"&state=1", true); }
-  else { xhr.open("GET", "/update?output="+element.id+"&state=0", true); }
+  if(element.checked)
+  { 
+    xhr.open("GET", "/update?output="+element.id+"&state=1", true); 
+  }
+  else 
+  { 
+    xhr.open("GET", "/update?output="+element.id+"&state=0", true); 
+  }
   xhr.send();
 }
 </script>
@@ -236,8 +240,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 
 <FORM action="/" method="get">
 <br>
-Fuse Current (mA): <INPUT type="text" name="fuse_value" size="5" value="50"<br>
-<input type="submit" value="Update">
+REFRESH: <input type="submit" value="REFRESH"> <br>
 </FORM>
 
 
@@ -245,6 +248,8 @@ Fuse Current (mA): <INPUT type="text" name="fuse_value" size="5" value="50"<br>
 </html>
 )rawliteral";
 
+// REFRESH: <INPUT type="text" name="fuse_value" size="5" value="50"<br>
+// <input type="submit" value="Update">
 
 /**
  * Replaces HTML placeholder 
@@ -402,33 +407,26 @@ void setup(void)
   /**
    * Send a GET request to <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
   */
-  server.on("/update", HTTP_GET, [] (AsyncWebServerRequest *request) {
+  server.on("/update", HTTP_GET, [] (AsyncWebServerRequest *request) 
+  {
     String inputMessage1;
     String inputMessage2;
-    uint8_t input_message1_value = 0;
-    uint8_t input_message2_value = 0;
-
-  if(ENABLE_LOGGING) 
-  {
-    Serial.print("GPIO: ");
-    Serial.print(input_message1_value);
-    Serial.print(" - Set to: ");
-    Serial.println(input_message2_value);
-  }
+    uint8_t html_number_value = 0;
+    uint8_t state_value = 0;
 
     /**
      * GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
      * Here is where we set the output based on the the fuse value selected
      * This is in the SETUP routine 
     */
-    if (request->hasParam(PARAM_INPUT_1) && request->hasParam(PARAM_INPUT_2)) {
+    if (request->hasParam(PARAM_INPUT_1) && request->hasParam(PARAM_INPUT_2)) 
+    {
       /* PARAM_INPUT_1 = "output" */
       inputMessage1 = request->getParam(PARAM_INPUT_1)->value(); 
       /* PARAM_INPUT_2 = "state" */ 
       inputMessage2 = request->getParam(PARAM_INPUT_2)->value();   
-      input_message1_value = inputMessage1.toInt(); // Output value
-      input_message2_value = inputMessage2.toInt(); // State value
-      
+      html_number_value = inputMessage1.toInt(); // Output value
+      state_value = inputMessage2.toInt(); // State value
       
       /**
        * Each IO had 100 added to it
@@ -439,70 +437,69 @@ void setup(void)
        * the originally intended IO
        * value.
       */
-      input_message1_value -= 100;
+      html_number_value -= 100;
       
       /**
-       * The following is true when a 
-       * switch switches from ON to OFF
+       * If the state is low, the switch has 
+       * transitioned from ON to OFF
       */
-      if(input_message2_value == 0) {     
-        if(input_message1_value == 17) {
-          if(fuse_current_ma != FUSE_CURRENT_MA_MIN) {
-            fuse_current_ma = FUSE_CURRENT_MA_MIN;
+     if(state_value == 0) {     
+       if(html_number_value == 17) 
+       {
+         if(fuse_current_ma != FUSE_CURRENT_MA_MIN) 
+         {
+           fuse_current_ma = FUSE_CURRENT_MA_MIN;
+           set_fuse_current_ma(fuse_current_ma);
+          }
+        }
+      }
+      
+      /**
+       * If the state is high, the switch has 
+       * transitioned from ON to OFF
+      */
+      if(state_value == 1) 
+      {     
+        
+        /**
+         * This is the case where the user
+         * wishes to arm the ignition system  
+        */
+        if(html_number_value == 17) {
+          if(fuse_current_ma != FUSE_CURRENT_MA_MAX) {
+            fuse_current_ma = FUSE_CURRENT_MA_MAX;
             set_fuse_current_ma(fuse_current_ma);
           }
         }
-      
-      }
-      
-      /** 
-       * The following is true when 
-       * a switch transitions from OFF to ON 
-       */
-      if(input_message2_value == 1) {     
-        
-      /**
-       * This is the case where the user
-       * wishes to arm the ignition system  
-      */
-      if(input_message1_value == 17) {
-        if(fuse_current_ma != FUSE_CURRENT_MA_MAX) {
-          fuse_current_ma = FUSE_CURRENT_MA_MAX;
-          set_fuse_current_ma(fuse_current_ma);
-        }
-      }
 
-      /**
-       * Enable the output (1-16) by enabling the 
-       * associated analog switch. 
-      */
-      else {
-        set_anlgsw(input_message1_value); 
-        fuse_ignition_active = true;
-      }
-
-        if(ENABLE_LOGGING)
+        /**
+         * Enable the output (1-16) by enabling the 
+         * associated analog switch. 
+        */
+        else 
         {
-          Serial.println("Timeout timer started.");
+          set_anlgsw(html_number_value); 
+          fuse_ignition_active = true;
+          timer_running = true;
+          
+          if(ENABLE_LOGGING)
+          {
+            Serial.println("Timeout timer started.");
+            Serial.print("GPIO: ");
+            Serial.print(html_number_value);
+            Serial.print(" - Set to: ");
+            Serial.println(state_value);
+          }
         }
-        timer_running = true;
-
       }
-
     }
-    else {
+
+    else 
+    {
       inputMessage1 = "Invalid request";
       inputMessage2 = "Invalid request";
     }
     
-    if(ENABLE_LOGGING)
-    {
-      Serial.print("GPIO: ");
-      Serial.print(input_message1_value);
-      Serial.print(" - Set to: ");
-      Serial.println(input_message2_value);
-    }
-
     request->send(200, "text/plain", "OK");
   });
 
@@ -643,20 +640,23 @@ void loop(void)
      * The fuse check algorithm
      * shan't run if fuse ignition is active 
      */
-    if(!fuse_ignition_active) 
+    if(!fuse_ignition_active && fuse_check_counter < 10 && current_screen == SCREEN_2) 
     {   
-      check_fuses(fuse_array,NUM_OF_FUSES);
-          
-      if(ENABLE_LOGGING_ADC_RELATED) 
-      {
-        Serial.print("Fuses [15:0]:  ");
-        for(i=16; i > 0; i--) 
+        fuse_check_counter ++;
+        check_fuses(fuse_array,NUM_OF_FUSES);
+            
+        if(ENABLE_LOGGING_ADC_RELATED) 
         {
-          Serial.print(fuse_array[i-1]);
+          Serial.print("Check Count: ");
+          Serial.println(fuse_check_counter);
+          Serial.print("Fuses [15:0]:  ");
+          for(i=16; i > 0; i--) 
+          {
+            Serial.print(fuse_array[i-1]);
+          }
+          Serial.println();
         }
-        Serial.println();
       }
-    }
     screen_evaluation();
     display_screen();
   }

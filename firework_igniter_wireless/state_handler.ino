@@ -41,7 +41,6 @@ void screen_evaluation( void ) {
 void StateEvaluation( void ) {      
 
     switch (current_state) {
-        //TODO a lot is commented out below -- do we need to remove?
         /**
          * @brief STATE EVALUATE SLEEP BIT
          * 
@@ -52,19 +51,6 @@ void StateEvaluation( void ) {
             {
                 Serial.println("\tIn Sate_1.\n");
             }
-            /**
-             * If sleep bit is set, 
-             * transition to STATE_6
-             * state
-             */
-
-            // if(digitalRead(SLEEP_BIT)) {     
-            //     current_state = STATE_6;
-            // }
-
-            // else {
-            //     current_state = STATE_2;
-            // }
         
         break;
 
@@ -74,21 +60,6 @@ void StateEvaluation( void ) {
          */
         case STATE_2:
             
-            // if (Serial.available() > 0){
-                                
-            //     SerialReadtoArray ();       // Blocking
-
-            //     #if defined(ENABLE_LOGGING)
-            //         Serial.print("\Received string: "); Serial.println(data_input_string);
-            //     #endif
-            
-            //     current_state = STATE_3;
-            // }  //Wait until serial data is available
-
-            /**
-             * ELSE
-             * we continue to wait for new data...
-             */
 
         break;
         
@@ -124,13 +95,6 @@ void StateEvaluation( void ) {
          * @brief DEEP SLEEP STATE
          */
         case STATE_6:
-            // digitalWrite(WIFI_ERR_LED, LOW);
-            
-            // /**
-            //  * Put module into deep sleep.
-            //  * Only a reset can wake the module!
-            //  */
-            // ESP.deepSleep(0);
         break;
 
         default:
